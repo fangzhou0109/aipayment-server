@@ -1,0 +1,8 @@
+# 服务层（Service）
+
+无状态领域服务，被 Logic / Controller 调用：
+`AmountHelper`(bcmath 金额) · `OrderNoGenerator`(订单号) · `SignService`(验签) ·
+`LedgerService`(记账) · `RouteService`(通道路由) · `RiskService`(风控) ·
+`MerchantNotifyService`(商户通知) · `ReconcileService`(对账) · `TgNotifyService`(TG) ·
+`channel/`(上游适配器：接口 + 抽象基类 + MockAdapter + 各上游实现)。
+此文件为占位，确保空目录纳入版本控制，后续阶段填充后可删除。

@@ -1,0 +1,9 @@
+# 插件中间件（Middleware）
+
+本插件自有中间件：
+- `SignVerify` —— 商户网关验签
+- `IpWhitelist` —— 商户 IP 白名单
+- `MerchantAuth` —— 商户门户独立 JWT 鉴权
+
+在 `config/middleware.php` 中按路由组绑定。
+此文件为占位，确保空目录纳入版本控制，后续阶段填充后可删除。
