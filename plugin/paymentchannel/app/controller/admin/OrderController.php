@@ -99,19 +99,22 @@ class OrderController extends BaseController
     #[Permission('测试代收下单', 'pay:order:testSubmit')]
     public function testSubmit(Request $request): Response
     {
-        $merchantId = (int) $request->post('merchant_id', 0);
+        $merchantId = (int) $request->input('merchant_id', 0);
         if ($merchantId <= 0) {
             return $this->fail('请选择商户');
         }
 
         try {
             $result = $this->logic->testSubmit($merchantId, [
-                'amount'         => $request->post('amount', '0'),
-                'pay_type'       => $request->post('pay_type', 0),
-                'out_trade_no'   => $request->post('out_trade_no', ''),
-                'notify_url'     => $request->post('notify_url', ''),
-                'return_url'     => $request->post('return_url', ''),
-                'commodity_name' => $request->post('commodity_name', ''),
+                'amount'         => $request->input('amount', '0'),
+                'pay_type'       => $request->input('pay_type', 0),
+                'out_trade_no'   => $request->input('out_trade_no', ''),
+                'notify_url'     => $request->input('notify_url', ''),
+                'return_url'     => $request->input('return_url', ''),
+                'commodity_name' => $request->input('commodity_name', ''),
+                'channel_id'     => $request->input('channel_id', 0),
+                'client_ip'      => $request->getRealIp(),
+                'extra'          => $request->input('extra', 'admin_test'),
             ]);
         } catch (PaymentException $e) {
             return $this->fail($e->getMessage());

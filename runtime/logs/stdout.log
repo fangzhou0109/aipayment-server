@@ -1,0 +1,51 @@
+think\db\exception\PDOException: SQLSTATE[HY000] [2002] Connection refused in /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php:836
+Stack trace:
+#0 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(746): think\db\PDOConnection->getPDOStatement()
+#1 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(685): think\db\PDOConnection->pdoQuery()
+#2 /www/wwwroot/saipayment-server/vendor/webman/think-orm/src/DbManager.php(104): think\db\PDOConnection->query()
+#3 /www/wwwroot/saipayment-server/vendor/webman/think-orm/src/DbManager.php(68): Webman\ThinkOrm\DbManager->heartbeat()
+#4 /www/wwwroot/saipayment-server/vendor/workerman/coroutine/src/Pool.php(328): Webman\ThinkOrm\DbManager->Webman\ThinkOrm\{closure}()
+#5 /www/wwwroot/saipayment-server/vendor/workerman/coroutine/src/Pool.php(312): Workerman\Coroutine\Pool->trySendHeartbeat()
+#6 /www/wwwroot/saipayment-server/vendor/workerman/coroutine/src/Pool.php(132): Workerman\Coroutine\Pool->checkConnections()
+#7 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Events/Select.php(483): Workerman\Coroutine\Pool->Workerman\Coroutine\{closure}()
+#8 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Events/Select.php(340): Workerman\Events\Select->safeCall()
+#9 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Events/Select.php(426): Workerman\Events\Select->tick()
+#10 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1758): Workerman\Events\Select->run()
+#11 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1554): Workerman\Worker::forkOneWorkerForLinux()
+#12 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1534): Workerman\Worker::forkWorkersForLinux()
+#13 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(603): Workerman\Worker::forkWorkers()
+#14 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/support/App.php(147): Workerman\Worker::runAll()
+#15 /www/wwwroot/saipayment-server/start.php(5): support\App::run()
+#16 {main}
+
+2026-06-12 07:28:33 => 定时任务[9101][支付-商户通知重试]:启动成功
+
+2026-06-12 07:28:33 => 定时任务[9102][支付-订单超时关闭]:启动成功
+
+2026-06-12 07:32:11 => 定时任务[9101][支付-商户通知重试]:启动成功
+
+2026-06-12 07:32:11 => 定时任务[9102][支付-订单超时关闭]:启动成功
+
+2026-06-12 07:49:02 => 定时任务[9101][支付-商户通知重试]:启动成功
+
+2026-06-12 07:49:02 => 定时任务[9102][支付-订单超时关闭]:启动成功
+
+2026-06-12 08:53:47 => 定时任务[9101][支付-商户通知重试]:启动成功
+
+2026-06-12 08:53:47 => 定时任务[9102][支付-订单超时关闭]:启动成功
+
+2026-06-12 09:06:31 => 定时任务[9101][支付-商户通知重试]:启动成功
+
+2026-06-12 09:06:31 => 定时任务[9102][支付-订单超时关闭]:启动成功
+
+2026-06-12 18:06:23 => 定时任务[9101][支付-商户通知重试]:启动成功
+
+2026-06-12 18:06:23 => 定时任务[9102][支付-订单超时关闭]:启动成功
+
+2026-06-13 00:31:07 => 定时任务[9101][支付-商户通知重试]:启动成功
+
+2026-06-13 00:31:07 => 定时任务[9102][支付-订单超时关闭]:启动成功
+
+2026-06-13 03:52:31 => 定时任务[9101][支付-商户通知重试]:启动成功
+
+2026-06-13 03:52:31 => 定时任务[9102][支付-订单超时关闭]:启动成功

@@ -367,6 +367,31 @@ class MerchantTest extends TestCase
     }
 
     /**
+     * 余额调账场景：方向 + 正金额 + 备注长度
+     */
+    public function testAdjustBalanceSceneValidation(): void
+    {
+        $v = new MerchantValidate();
+        $this->assertTrue(
+            $v->scene('adjustBalance')->check([
+                'id'        => 1,
+                'direction' => 'increase',
+                'amount'    => 100,
+                'remark'    => '线下补录',
+            ]),
+            '合法调账参数应通过，错误：' . $v->getError()
+        );
+
+        $v2 = new MerchantValidate();
+        $this->assertFalse($v2->scene('adjustBalance')->check([
+            'id'        => 1,
+            'direction' => 'invalid',
+            'amount'    => 100,
+        ]));
+        $this->assertStringContainsString('调账方向', $v2->getError());
+    }
+
+    /**
      * 合法 RSA 公钥应通过校验
      */
     public function testAssertValidRsaPublicKeyAcceptsGeneratedPair(): void

@@ -19,7 +19,7 @@ return [
     // 平台对外 API 基址（须与 nginx 反代一致，**不含** /pay 后缀）。
     // 商户网关：{notify_domain}/pay/submitOrder；上游回调：{notify_domain}/pay/notify/{通道编码}。
     // 宝塔/nginx 常见为 https://域名/prod 或 https://域名/api（与前端 VITE_API_URL 一致），勿写成裸 /pay（会 404）。
-    'notify_domain' => 'https://api.starfusionx.com/prod',
+    'notify_domain' => 'https://api.fangzhou.uk/prod',
     // 商户网关完整基址（可选，优先级高于 notify_domain；如 https://admin.example.com/prod/pay）
     'pay_gateway_base' => '',
     // notify_domain 与 pay_gateway_base 均未配置时，按 Host + 此前缀 + /pay 回退（本地直连 8787 留空）
@@ -27,7 +27,7 @@ return [
     // 代付通道编码（系统兜底，勿依赖）：生产应由商户×通道 transfer_enabled 白名单选路（9.4.2 / 9.5.4）。
     // 仅当商户无代付授权绑定时回退本配置（须为 channel_biz IN 2,3 且已填 transfer_adapter）；留空且无绑定时报未配置。
     // 回调地址：{notify_domain}/pay/transferNotify/{通道编码}。
-    'transfer_channel_code' => 'https://api.starfusionx.com',
+    'transfer_channel_code' => 'https://api.fangzhou.uk',
     // 商户网关限流(Phase 7.2 OWASP 防超频/暴力)：按「商户号+路径」固定窗口计数。
     // enable=false 关闭；max<=0 视为不限流；Redis 异常失败放行不阻断支付。
     // 默认 60 次/60 秒/每商户每端点（足够正常下单，挡住异常超频）。

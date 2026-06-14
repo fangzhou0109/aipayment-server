@@ -14,6 +14,7 @@ use plugin\paymentchannel\app\model\Order;
 use plugin\paymentchannel\service\AmountHelper;
 use plugin\paymentchannel\service\LedgerService;
 use plugin\paymentchannel\service\MerchantNotifyService;
+use plugin\paymentchannel\service\SignService;
 use plugin\paymentchannel\service\TestNotifyService;
 use plugin\saiadmin\exception\ApiException;
 
@@ -188,7 +189,7 @@ class OrderLogic extends PaymentBaseLogic
      * 平台后台测试下单：走生产 PayGatewayLogic，免商户签名校验
      *
      * @param int $merchantId 商户 ID
-     * @param array $params amount(元)、pay_type、out_trade_no、notify_url 等
+     * @param array $params amount(元)、pay_type、out_trade_no、notify_url、channel_id、client_ip、extra 等
      * @return array 网关结果 + 订单快照（含 route_id/channel_id/fee）
      * @throws PaymentException
      */
@@ -219,17 +220,33 @@ class OrderLogic extends PaymentBaseLogic
             $notifyUrl = TestNotifyService::resolveDefaultNotifyUrl();
         }
 
+        // 与商户 Demo（/pay/submitOrder）对齐：money 为分、extra/client_ip 参与上游签名拼串
         $gatewayParams = [
             'order_id'       => $outTradeNo,
-            'money'          => (string) (int) bcmul($amountYuan, '100', 0),
+            'money'          => AmountHelper::format(AmountHelper::mul($amountYuan, '100'), 0),
             'pay_type'       => $payType,
             'notify_url'     => $notifyUrl,
-            'return_url'     => (string) ($params['return_url'] ?? ''),
+            'return_url'     => trim((string) ($params['return_url'] ?? '')),
             'commodity_name' => (string) ($params['commodity_name'] ?? '后台测试下单'),
+            'client_ip'      => trim((string) ($params['client_ip'] ?? '127.0.0.1')),
+            'extra'          => trim((string) ($params['extra'] ?? 'admin_test')),
+            'sign_type'      => SignService::SIGN_TYPE_MD5,
         ];
+
+        $forceChannelId = (int) ($params['channel_id'] ?? 0);
+        if ($forceChannelId > 0) {
+            $gatewayParams['_force_channel_id'] = $forceChannelId;
+        }
 
         $result = (new PayGatewayLogic())->submitOrder($merchant, $gatewayParams);
         $order = Order::where('order_no', $result['order_no'] ?? '')->find();
+
+        $pickMode = 'direct';
+        if ($forceChannelId > 0) {
+            $pickMode = 'forced';
+        } elseif ($order && (int) ($order->route_id ?? 0) > 0) {
+            $pickMode = 'route';
+        }
 
         return array_merge($result, [
             'out_trade_no'   => $outTradeNo,
@@ -238,7 +255,7 @@ class OrderLogic extends PaymentBaseLogic
             'channel_id'     => $order ? (int) ($order->channel_id ?? 0) : 0,
             'fee'            => $order ? (string) $order->fee : '',
             'real_amount'    => $order ? (string) $order->real_amount : '',
-            'pick_mode'      => ($order && (int) ($order->route_id ?? 0) > 0) ? 'route' : 'direct',
+            'pick_mode'      => $pickMode,
             'notify_url'     => $notifyUrl,
             'is_test_notify' => TestNotifyService::isTestNotifyUrl($notifyUrl),
         ]);

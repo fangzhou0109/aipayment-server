@@ -31,6 +31,7 @@ INSERT INTO `sa_system_menu` VALUES (9013, 9010, '修改', '', 'pay:merchant:upd
 INSERT INTO `sa_system_menu` VALUES (9014, 9010, '读取', '', 'pay:merchant:read', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-08 00:00:00', '2026-06-08 00:00:00', NULL);
 INSERT INTO `sa_system_menu` VALUES (9015, 9010, '删除', '', 'pay:merchant:destroy', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-08 00:00:00', '2026-06-08 00:00:00', NULL);
 INSERT INTO `sa_system_menu` VALUES (9016, 9010, '重置密钥', '', 'pay:merchant:resetKey', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-08 00:00:00', '2026-06-08 00:00:00', NULL);
+INSERT INTO `sa_system_menu` VALUES (9019, 9010, '余额调账', '', 'pay:merchant:adjustBalance', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, '人工增减商户可用余额', 1, 1, '2026-06-09 00:00:00', '2026-06-09 00:00:00', NULL);
 -- Phase 9.1：商户代收通道授权与费率（listByMerchant / batchSave / 后台「通道配置」抽屉）
 INSERT INTO `sa_system_menu` VALUES (9017, 9010, '代收/代付通道配置', '', 'pay:merchant:channel', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, '商户代收与代付通道授权（入口已拆分）', 1, 1, '2026-06-09 00:00:00', '2026-06-09 00:00:00', NULL);
 -- Phase 9.3.1：商户×路由授权（listByMerchant / batchSave，可选收紧 resolveChannel）

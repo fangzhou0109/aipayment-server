@@ -41,6 +41,9 @@ class LedgerService
     /** 幂等键前缀：充值入账（同一充值单仅入账一次） */
     public const IDEMPOTENT_PREFIX_RECHARGE = 'recharge:';
 
+    /** 幂等键前缀：人工调账（同一调账单仅执行一次） */
+    public const IDEMPOTENT_PREFIX_ADJUST = 'adjust:';
+
     /**
      * 代收入账：可用余额 += real_amount，写流水，标记订单已入账
      *
@@ -216,6 +219,68 @@ class LedgerService
             CapitalFlow::ACCOUNT_BALANCE, $amount, $balance, $newBalance,
             'wd_refund_bal:' . $withdrawNo, '提现退款解冻(可用)'
         ));
+    }
+
+    /**
+     * 人工调账：增减商户可用余额（平台后台专用，须由调用方事务包裹）
+     *
+     * @param int    $merchantId   商户ID
+     * @param string $mchId        商户号（冗余入流水）
+     * @param string $signedAmount 变动金额（元，正增负减）
+     * @param string $adjustNo     调账单号（幂等键、流水 biz_no）
+     * @param string $remark       备注（运营填写，写入流水）
+     * @return array{adjust_no:string,change_amount:string,before_balance:string,after_balance:string}
+     * @throws RuntimeException 金额为 0 / 商户不存在 / 扣减后余额不足
+     */
+    public function adjustBalance(
+        int $merchantId,
+        string $mchId,
+        string $signedAmount,
+        string $adjustNo,
+        string $remark = '',
+    ): array {
+        $signedAmount = AmountHelper::format($signedAmount);
+        if (AmountHelper::compare($signedAmount, '0') === 0) {
+            throw new RuntimeException('调账金额不能为 0');
+        }
+
+        $key = self::IDEMPOTENT_PREFIX_ADJUST . $adjustNo;
+        if ($this->flowExists($key)) {
+            throw new RuntimeException('调账单已处理，请勿重复提交');
+        }
+
+        $merchant = $this->lockMerchant($merchantId);
+        if ($merchant === null) {
+            throw new RuntimeException('调账失败：商户不存在 #' . $merchantId);
+        }
+
+        $before = AmountHelper::format((string) ($merchant['balance'] ?? '0'));
+        $after = AmountHelper::add($before, $signedAmount);
+        if (AmountHelper::compare($after, '0') < 0) {
+            throw new RuntimeException('可用余额不足，无法扣减');
+        }
+
+        $this->updateBalance($merchantId, $after);
+        $this->insertFlow([
+            'flow_no'        => $this->genFlowNo(),
+            'merchant_id'    => $merchantId,
+            'mch_id'         => $mchId,
+            'biz_type'       => CapitalFlow::BIZ_ADJUST,
+            'biz_no'         => $adjustNo,
+            'change_type'    => CapitalFlow::ACCOUNT_BALANCE,
+            'change_amount'  => $signedAmount,
+            'before_balance' => $before,
+            'after_balance'  => $after,
+            'idempotent_key' => $key,
+            'remark'         => $remark !== '' ? $remark : '平台人工调账',
+        ]);
+
+        return [
+            'adjust_no'       => $adjustNo,
+            'change_amount'   => $signedAmount,
+            'before_balance'  => $before,
+            'after_balance'   => $after,
+        ];
     }
 
     // ===== 充值入账，由调用方事务包裹 =====

@@ -1,0 +1,184 @@
+[2026-06-12 07:09:19] default.ERROR: POST /core/login
+[request_param]: {"username":"admin","password":"123456","code":"hqqg","uuid":"ad2c72b0-2bbe-4f89-ae21-20f254b9fe24"}
+[timestamp]: 2026-06-12 07:09:19
+[client_ip]: 94.204.1.213
+[action_user]: false
+[exception_handle]: think\db\exception\PDOException
+[exception_info]: 
+think\db\exception\PDOException: SQLSTATE[HY000] [2002] Connection refused in /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php:836
+Stack trace:
+#0 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(831): think\db\PDOConnection->getPDOStatement()
+#1 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(831): think\db\PDOConnection->getPDOStatement()
+#2 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(831): think\db\PDOConnection->getPDOStatement()
+#3 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(831): think\db\PDOConnection->getPDOStatement()
+#4 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/connector/Mysql.php(68): think\db\PDOConnection->getPDOStatement()
+#5 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(438): think\db\connector\Mysql->getFields()
+#6 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(395): think\db\PDOConnection->getTableFieldsInfo()
+#7 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(360): think\db\PDOConnection->getCachedSchemaInfo()
+#8 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(424): think\db\PDOConnection->getSchemaInfo()
+#9 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(513): think\db\PDOConnection->getTableInfo()
+#10 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/concern/TableFieldInfo.php(60): think\db\PDOConnection->getFieldsType()
+#11 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/concern/TableFieldInfo.php(72): think\db\Query->getFieldsType()
+#12 [internal function]: think\db\Query->getFieldType()
+#13 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/Model.php(1178): call_user_func_array()
+#14 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/model/concern/TimeStamp.php(82): think\Model->__call()
+#15 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/model/concern/TimeStamp.php(62): think\Model->checkTimeFieldType()
+#16 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/DbManager.php(108): think\Model->isAutoWriteTimestamp()
+#17 [internal function]: think\DbManager->think\{closure}()
+#18 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/Model.php(272): call_user_func()
+#19 /www/wwwroot/saipayment-server/plugin/saiadmin/app/logic/system/SystemUserLogic.php(31): think\Model->__construct()
+#20 /www/wwwroot/saipayment-server/plugin/saiadmin/app/controller/LoginController.php(56): plugin\saiadmin\app\logic\system\SystemUserLogic->__construct()
+#21 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(428): plugin\saiadmin\app\controller\LoginController->login()
+#22 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(444): Webman\App::Webman\{closure}()
+#23 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/SystemLog.php(36): Webman\App::Webman\{closure}()
+#24 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\SystemLog->process()
+#25 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/CheckAuth.php(32): Webman\App::Webman\{closure}()
+#26 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\CheckAuth->process()
+#27 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/CheckLogin.php(38): Webman\App::Webman\{closure}()
+#28 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\CheckLogin->process()
+#29 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(931): Webman\App::Webman\{closure}()
+#30 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(167): Webman\App::findRoute()
+#31 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Connection/TcpConnection.php(805): Webman\App->onMessage()
+#32 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Events/Select.php(406): Workerman\Connection\TcpConnection->baseRead()
+#33 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1758): Workerman\Events\Select->run()
+#34 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1554): Workerman\Worker::forkOneWorkerForLinux()
+#35 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1534): Workerman\Worker::forkWorkersForLinux()
+#36 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(603): Workerman\Worker::forkWorkers()
+#37 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/support/App.php(147): Workerman\Worker::runAll()
+#38 /www/wwwroot/saipayment-server/start.php(5): support\App::run()
+#39 {main} [] []
+[2026-06-12 07:13:33] default.ERROR: POST /core/login
+[request_param]: {"username":"admin","password":"123456","code":"wzjr","uuid":"5ba74d05-e653-427a-b67e-2ecbaa7a872a"}
+[timestamp]: 2026-06-12 07:13:33
+[client_ip]: 94.204.1.213
+[action_user]: false
+[exception_handle]: think\db\exception\PDOException
+[exception_info]: 
+think\db\exception\PDOException: SQLSTATE[HY000] [1045] Access denied for user 'saipayment'@'localhost' (using password: YES) in /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php:836
+Stack trace:
+#0 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/connector/Mysql.php(68): think\db\PDOConnection->getPDOStatement()
+#1 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(438): think\db\connector\Mysql->getFields()
+#2 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(395): think\db\PDOConnection->getTableFieldsInfo()
+#3 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(360): think\db\PDOConnection->getCachedSchemaInfo()
+#4 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(424): think\db\PDOConnection->getSchemaInfo()
+#5 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(513): think\db\PDOConnection->getTableInfo()
+#6 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/concern/TableFieldInfo.php(60): think\db\PDOConnection->getFieldsType()
+#7 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/concern/TableFieldInfo.php(72): think\db\Query->getFieldsType()
+#8 [internal function]: think\db\Query->getFieldType()
+#9 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/Model.php(1178): call_user_func_array()
+#10 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/model/concern/TimeStamp.php(82): think\Model->__call()
+#11 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/model/concern/TimeStamp.php(62): think\Model->checkTimeFieldType()
+#12 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/DbManager.php(108): think\Model->isAutoWriteTimestamp()
+#13 [internal function]: think\DbManager->think\{closure}()
+#14 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/Model.php(272): call_user_func()
+#15 /www/wwwroot/saipayment-server/plugin/saiadmin/app/logic/system/SystemUserLogic.php(31): think\Model->__construct()
+#16 /www/wwwroot/saipayment-server/plugin/saiadmin/app/controller/LoginController.php(56): plugin\saiadmin\app\logic\system\SystemUserLogic->__construct()
+#17 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(428): plugin\saiadmin\app\controller\LoginController->login()
+#18 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(444): Webman\App::Webman\{closure}()
+#19 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/SystemLog.php(36): Webman\App::Webman\{closure}()
+#20 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\SystemLog->process()
+#21 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/CheckAuth.php(32): Webman\App::Webman\{closure}()
+#22 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\CheckAuth->process()
+#23 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/CheckLogin.php(38): Webman\App::Webman\{closure}()
+#24 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\CheckLogin->process()
+#25 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(931): Webman\App::Webman\{closure}()
+#26 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(167): Webman\App::findRoute()
+#27 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Connection/TcpConnection.php(805): Webman\App->onMessage()
+#28 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Events/Select.php(406): Workerman\Connection\TcpConnection->baseRead()
+#29 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1758): Workerman\Events\Select->run()
+#30 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1554): Workerman\Worker::forkOneWorkerForLinux()
+#31 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1534): Workerman\Worker::forkWorkersForLinux()
+#32 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(603): Workerman\Worker::forkWorkers()
+#33 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/support/App.php(147): Workerman\Worker::runAll()
+#34 /www/wwwroot/saipayment-server/start.php(5): support\App::run()
+#35 {main} [] []
+[2026-06-12 07:20:54] default.ERROR: POST /core/login
+[request_param]: {"username":"admin","password":"123456","code":"tpwg","uuid":"7776f427-56ef-43c8-ad70-7a9c2b5864b1"}
+[timestamp]: 2026-06-12 07:20:54
+[client_ip]: 94.204.1.213
+[action_user]: false
+[exception_handle]: think\db\exception\PDOException
+[exception_info]: 
+think\db\exception\PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'saipayment.sa_system_user' doesn't exist in /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php:836
+Stack trace:
+#0 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/connector/Mysql.php(68): think\db\PDOConnection->getPDOStatement()
+#1 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(438): think\db\connector\Mysql->getFields()
+#2 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(395): think\db\PDOConnection->getTableFieldsInfo()
+#3 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(360): think\db\PDOConnection->getCachedSchemaInfo()
+#4 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(424): think\db\PDOConnection->getSchemaInfo()
+#5 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(513): think\db\PDOConnection->getTableInfo()
+#6 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/concern/TableFieldInfo.php(60): think\db\PDOConnection->getFieldsType()
+#7 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/concern/TableFieldInfo.php(72): think\db\Query->getFieldsType()
+#8 [internal function]: think\db\Query->getFieldType()
+#9 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/Model.php(1178): call_user_func_array()
+#10 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/model/concern/TimeStamp.php(82): think\Model->__call()
+#11 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/model/concern/TimeStamp.php(62): think\Model->checkTimeFieldType()
+#12 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/DbManager.php(108): think\Model->isAutoWriteTimestamp()
+#13 [internal function]: think\DbManager->think\{closure}()
+#14 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/Model.php(272): call_user_func()
+#15 /www/wwwroot/saipayment-server/plugin/saiadmin/app/logic/system/SystemUserLogic.php(31): think\Model->__construct()
+#16 /www/wwwroot/saipayment-server/plugin/saiadmin/app/controller/LoginController.php(56): plugin\saiadmin\app\logic\system\SystemUserLogic->__construct()
+#17 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(428): plugin\saiadmin\app\controller\LoginController->login()
+#18 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(444): Webman\App::Webman\{closure}()
+#19 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/SystemLog.php(36): Webman\App::Webman\{closure}()
+#20 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\SystemLog->process()
+#21 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/CheckAuth.php(32): Webman\App::Webman\{closure}()
+#22 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\CheckAuth->process()
+#23 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/CheckLogin.php(38): Webman\App::Webman\{closure}()
+#24 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\CheckLogin->process()
+#25 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(931): Webman\App::Webman\{closure}()
+#26 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(167): Webman\App::findRoute()
+#27 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Connection/TcpConnection.php(805): Webman\App->onMessage()
+#28 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Events/Select.php(406): Workerman\Connection\TcpConnection->baseRead()
+#29 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1758): Workerman\Events\Select->run()
+#30 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1554): Workerman\Worker::forkOneWorkerForLinux()
+#31 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1534): Workerman\Worker::forkWorkersForLinux()
+#32 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(603): Workerman\Worker::forkWorkers()
+#33 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/support/App.php(147): Workerman\Worker::runAll()
+#34 /www/wwwroot/saipayment-server/start.php(5): support\App::run()
+#35 {main} [] []
+[2026-06-12 07:21:29] default.ERROR: POST /core/login
+[request_param]: {"username":"admin","password":"123456","code":"uezw","uuid":"cb0e7ac9-7e43-453d-b7e6-d0bb9a45eccc"}
+[timestamp]: 2026-06-12 07:21:29
+[client_ip]: 94.204.1.213
+[action_user]: false
+[exception_handle]: think\db\exception\PDOException
+[exception_info]: 
+think\db\exception\PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'saipayment.sa_system_user' doesn't exist in /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php:836
+Stack trace:
+#0 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/connector/Mysql.php(68): think\db\PDOConnection->getPDOStatement()
+#1 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(438): think\db\connector\Mysql->getFields()
+#2 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(395): think\db\PDOConnection->getTableFieldsInfo()
+#3 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(360): think\db\PDOConnection->getCachedSchemaInfo()
+#4 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(424): think\db\PDOConnection->getSchemaInfo()
+#5 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/PDOConnection.php(513): think\db\PDOConnection->getTableInfo()
+#6 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/concern/TableFieldInfo.php(60): think\db\PDOConnection->getFieldsType()
+#7 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/db/concern/TableFieldInfo.php(72): think\db\Query->getFieldsType()
+#8 [internal function]: think\db\Query->getFieldType()
+#9 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/Model.php(1178): call_user_func_array()
+#10 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/model/concern/TimeStamp.php(82): think\Model->__call()
+#11 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/model/concern/TimeStamp.php(62): think\Model->checkTimeFieldType()
+#12 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/DbManager.php(108): think\Model->isAutoWriteTimestamp()
+#13 [internal function]: think\DbManager->think\{closure}()
+#14 /www/wwwroot/saipayment-server/vendor/topthink/think-orm/src/Model.php(272): call_user_func()
+#15 /www/wwwroot/saipayment-server/plugin/saiadmin/app/logic/system/SystemUserLogic.php(31): think\Model->__construct()
+#16 /www/wwwroot/saipayment-server/plugin/saiadmin/app/controller/LoginController.php(56): plugin\saiadmin\app\logic\system\SystemUserLogic->__construct()
+#17 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(428): plugin\saiadmin\app\controller\LoginController->login()
+#18 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(444): Webman\App::Webman\{closure}()
+#19 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/SystemLog.php(36): Webman\App::Webman\{closure}()
+#20 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\SystemLog->process()
+#21 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/CheckAuth.php(32): Webman\App::Webman\{closure}()
+#22 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\CheckAuth->process()
+#23 /www/wwwroot/saipayment-server/plugin/saiadmin/app/middleware/CheckLogin.php(38): Webman\App::Webman\{closure}()
+#24 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\saiadmin\app\middleware\CheckLogin->process()
+#25 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(931): Webman\App::Webman\{closure}()
+#26 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(167): Webman\App::findRoute()
+#27 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Connection/TcpConnection.php(805): Webman\App->onMessage()
+#28 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Events/Select.php(406): Workerman\Connection\TcpConnection->baseRead()
+#29 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1758): Workerman\Events\Select->run()
+#30 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1554): Workerman\Worker::forkOneWorkerForLinux()
+#31 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1534): Workerman\Worker::forkWorkersForLinux()
+#32 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(603): Workerman\Worker::forkWorkers()
+#33 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/support/App.php(147): Workerman\Worker::runAll()
+#34 /www/wwwroot/saipayment-server/start.php(5): support\App::run()
+#35 {main} [] []

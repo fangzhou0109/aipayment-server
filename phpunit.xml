@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  SaiPayment 四方支付渠道系统 PHPUnit 配置
+  作用：本地纯单元测试入口（全 mock，不依赖数据库与 webman 常驻服务）。
+  运行：cd server 后执行 ./vendor/bin/phpunit 跑全部测试，加 testdox 参数可看可读用例清单。
+  约定：测试源码统一放在各插件的 tests/ 目录；当前纳入 paymentchannel 插件。
+-->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true">
+    <testsuites>
+        <!-- 支付渠道插件测试套件：后续新增的 *Test.php 均自动纳入 -->
+        <testsuite name="paymentchannel">
+            <directory>plugin/paymentchannel/tests</directory>
+        </testsuite>
+    </testsuites>
+    <!-- 覆盖率统计范围：仅插件业务源码（排除 tests 自身） -->
+    <source>
+        <include>
+            <directory suffix=".php">plugin/paymentchannel/app</directory>
+            <directory suffix=".php">plugin/paymentchannel/service</directory>
+        </include>
+    </source>
+</phpunit>

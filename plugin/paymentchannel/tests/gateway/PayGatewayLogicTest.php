@@ -933,4 +933,85 @@ class PayGatewayLogicTest extends TestCase
             $this->assertStringContainsString('notify_url', $e->getMessage());
         }
     }
+
+    /**
+     * 后台 testSubmit：_force_channel_id 跳过路由/权重，直指定通道并保留 client_ip/extra
+     */
+    public function testSubmitOrderWithForcedChannel(): void
+    {
+        $logic = $this->makeAuthLogic('ok');
+        $logic->authorizedIds = [1, 14];
+        $logic->routes = [];
+        $logic->channels = [
+            1 => [
+                'id' => 1,
+                'code' => 'mock_test',
+                'adapter' => 'mock',
+                'status' => 1,
+                'pay_type' => 3,
+                'channel_biz' => Channel::BIZ_PAY_ONLY,
+                'sort' => 100,
+                'money_rule' => '',
+                'rate' => '0.0000',
+                'rate_self' => '0.0000',
+                'gateway_url' => '',
+                'upstream_mch_id' => '',
+                'upstream_key' => '',
+            ],
+            14 => [
+                'id' => 14,
+                'code' => 'lqpay',
+                'adapter' => 'lqpay',
+                'status' => 1,
+                'pay_type' => 3,
+                'channel_biz' => Channel::BIZ_PAY_ONLY,
+                'sort' => 1,
+                'money_rule' => '',
+                'rate' => '1.5000',
+                'rate_self' => '2.6000',
+                'gateway_url' => 'https://api.example.com/prod/pay',
+                'upstream_mch_id' => 'TEST_M001',
+                'upstream_key' => 'secret_upstream_key_32chars_xx',
+            ],
+        ];
+        $logic->testRateResolver = new TestableRateResolver();
+        $logic->testRateResolver->channel = $logic->channels[14];
+
+        $result = $logic->submitOrder($this->merchant(), $this->params([
+            '_force_channel_id' => 14,
+        ]));
+
+        $this->assertArrayHasKey('order_no', $result);
+        $this->assertSame(14, $logic->persisted['channel_id']);
+        $this->assertSame('1.2.3.4', $logic->persisted['client_ip']);
+        $this->assertSame('ext_1', $logic->persisted['extra']);
+    }
+
+    /**
+     * 强制通道须在商户授权白名单内
+     */
+    public function testForcedChannelUnauthorizedRejected(): void
+    {
+        $logic = $this->makeAuthLogic('ok');
+        $logic->authorizedIds = [1];
+        $logic->channels = [
+            14 => [
+                'id' => 14,
+                'code' => 'lqpay',
+                'adapter' => 'lqpay',
+                'status' => 1,
+                'pay_type' => 3,
+                'channel_biz' => Channel::BIZ_PAY_ONLY,
+                'rate' => '1.5000',
+                'rate_self' => '2.6000',
+            ],
+        ];
+
+        try {
+            $logic->submitOrder($this->merchant(), $this->params(['_force_channel_id' => 14]));
+            $this->fail('未授权通道应拒绝');
+        } catch (PaymentException $e) {
+            $this->assertStringContainsString('未授权', $e->getMessage());
+        }
+    }
 }

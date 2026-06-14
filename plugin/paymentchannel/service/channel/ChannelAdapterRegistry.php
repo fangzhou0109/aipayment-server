@@ -36,6 +36,8 @@ class ChannelAdapterRegistry
         // 支付宝/微信扫码：协议同属「通用扫码」，复用 ScanPayAdapter，差异由通道凭证(extra/密钥/网关)承载
         'alipay_scan' => ['name' => '支付宝扫码', 'class' => \plugin\paymentchannel\service\channel\adapters\ScanPayAdapter::class],
         'wechat_scan' => ['name' => '微信扫码', 'class' => \plugin\paymentchannel\service\channel\adapters\ScanPayAdapter::class],
+        // LQPAY：另一套 SaiPayment 部署作为上游，走商户网关 /pay/submitOrder、/pay/query
+        'lqpay' => ['name' => 'LQPAY（SaiPayment 同源）', 'class' => \plugin\paymentchannel\service\channel\adapters\LqpayAdapter::class],
     ];
 
     /**

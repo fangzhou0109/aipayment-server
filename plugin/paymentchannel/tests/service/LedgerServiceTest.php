@@ -449,4 +449,40 @@ class LedgerServiceTest extends TestCase
 
         $this->assertSame('0.3000', $svc->merchants[7]['balance']);
     }
+
+    // ===== 人工调账 =====
+
+    /**
+     * 人工加款：可用 100 + 50 → 150，写 BIZ_ADJUST 流水
+     */
+    public function testAdjustBalanceIncrease(): void
+    {
+        $svc = new TestableLedgerService();
+        $svc->merchants[7] = ['id' => 7, 'balance' => '100.0000', 'balance_freeze' => '0.0000'];
+
+        $result = $svc->adjustBalance(7, 'M007', '50.0000', 'ADJ001', '测试加款');
+
+        $this->assertSame('150.0000', $svc->merchants[7]['balance']);
+        $this->assertSame('150.0000', $result['after_balance']);
+        $this->assertCount(1, $svc->flows);
+
+        $flow = $svc->flows[0];
+        $this->assertSame(CapitalFlow::BIZ_ADJUST, $flow['biz_type']);
+        $this->assertSame('50.0000', $flow['change_amount']);
+        $this->assertSame('adjust:ADJ001', $flow['idempotent_key']);
+        $this->assertSame('测试加款', $flow['remark']);
+    }
+
+    /**
+     * 人工扣款：余额不足应拒绝
+     */
+    public function testAdjustBalanceDecreaseInsufficient(): void
+    {
+        $svc = new TestableLedgerService();
+        $svc->merchants[7] = ['id' => 7, 'balance' => '10.0000', 'balance_freeze' => '0.0000'];
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('可用余额不足');
+        $svc->adjustBalance(7, 'M007', '-20.0000', 'ADJ002', '测试扣款');
+    }
 }

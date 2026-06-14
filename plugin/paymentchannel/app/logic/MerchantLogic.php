@@ -11,8 +11,10 @@ namespace plugin\paymentchannel\app\logic;
 use plugin\paymentchannel\app\exception\PaymentException;
 use plugin\paymentchannel\app\model\Merchant;
 use plugin\paymentchannel\service\AmountHelper;
+use plugin\paymentchannel\service\LedgerService;
 use plugin\paymentchannel\service\MerchantKeyService;
 use plugin\saiadmin\exception\ApiException;
+use RuntimeException;
 /**
  * 商户管理逻辑层
  *
@@ -22,6 +24,12 @@ use plugin\saiadmin\exception\ApiException;
  */
 class MerchantLogic extends PaymentBaseLogic
 {
+    /**
+     * 入账服务（人工调账等须走 LedgerService，禁止直写 balance 字段）
+     * @var LedgerService
+     */
+    private LedgerService $ledger;
+
     /**
      * 余额相关只读字段：绝不允许通过 add/edit 接口直接写入，
      * 余额变动只能走 LedgerService 事务记账（Phase 3.4）。
@@ -42,11 +50,12 @@ class MerchantLogic extends PaymentBaseLogic
     private array $zeroRateFieldsOnAdd = ['rate'];
 
     /**
-     * 构造函数：注入商户模型
+     * @param LedgerService|null $ledger 资金服务（测试可注入）
      */
-    public function __construct()
+    public function __construct(?LedgerService $ledger = null)
     {
         $this->model = new Merchant();
+        $this->ledger = $ledger ?? new LedgerService();
     }
 
     /**
@@ -98,6 +107,61 @@ class MerchantLogic extends PaymentBaseLogic
         $data = $this->normalizeIpWhitelist($data);
         $data = $this->hashPassword($data);
         return parent::edit($id, $data);
+    }
+
+    /**
+     * 平台人工调账：增加或扣减商户可用余额
+     *
+     * @param int $merchantId 商户ID
+     * @param string $direction increase=加款 / decrease=扣款
+     * @param string $amountYuan 变动金额（元，正数）
+     * @param string $remark 备注（写入资金流水，便于审计）
+     * @return array 调账结果 + 商户快照
+     * @throws PaymentException
+     */
+    public function adjustBalance(int $merchantId, string $direction, string $amountYuan, string $remark = ''): array
+    {
+        if (!in_array($direction, ['increase', 'decrease'], true)) {
+            throw new PaymentException('调账方向非法');
+        }
+
+        $amount = AmountHelper::format($amountYuan);
+        if (!AmountHelper::gtZero($amount)) {
+            throw new PaymentException('调账金额必须大于 0');
+        }
+
+        $merchant = Merchant::where('id', $merchantId)->find();
+        if (!$merchant) {
+            throw new PaymentException('商户不存在');
+        }
+
+        $signedAmount = $direction === 'decrease' ? AmountHelper::sub('0', $amount) : $amount;
+        $adjustNo = 'ADJ' . date('YmdHis') . random_int(1000, 9999);
+        $flowRemark = trim($remark);
+        if ($flowRemark === '') {
+            $flowRemark = $direction === 'increase' ? '平台人工加款' : '平台人工扣款';
+        }
+
+        $result = $this->transaction(function () use ($merchant, $signedAmount, $adjustNo, $flowRemark) {
+            try {
+                return $this->ledger->adjustBalance(
+                    (int) $merchant->id,
+                    (string) $merchant->mch_id,
+                    $signedAmount,
+                    $adjustNo,
+                    $flowRemark,
+                );
+            } catch (RuntimeException $e) {
+                throw new PaymentException($e->getMessage());
+            }
+        });
+
+        return array_merge($result, [
+            'merchant_id' => (int) $merchant->id,
+            'mch_id'      => (string) $merchant->mch_id,
+            'direction'   => $direction,
+            'balance'     => $result['after_balance'],
+        ]);
     }
 
     /**

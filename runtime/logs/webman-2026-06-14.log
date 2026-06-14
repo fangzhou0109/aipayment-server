@@ -1,0 +1,15 @@
+[2026-06-14 00:11:30] default.ERROR: 203.160.86.40 GET api.fangzhou.uk/mapi/auth/info
+plugin\saiadmin\exception\ApiException: 您的登录凭证错误或者已过期，请重新登录 in /www/wwwroot/saipayment-server/plugin/paymentchannel/app/middleware/MerchantAuth.php:59
+Stack trace:
+#0 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(468): plugin\paymentchannel\app\middleware\MerchantAuth->process()
+#1 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(931): Webman\App::Webman\{closure}()
+#2 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/App.php(167): Webman\App::findRoute()
+#3 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Connection/TcpConnection.php(805): Webman\App->onMessage()
+#4 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Events/Select.php(406): Workerman\Connection\TcpConnection->baseRead()
+#5 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1758): Workerman\Events\Select->run()
+#6 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1554): Workerman\Worker::forkOneWorkerForLinux()
+#7 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(1534): Workerman\Worker::forkWorkersForLinux()
+#8 /www/wwwroot/saipayment-server/vendor/workerman/workerman/src/Worker.php(603): Workerman\Worker::forkWorkers()
+#9 /www/wwwroot/saipayment-server/vendor/workerman/webman-framework/src/support/App.php(147): Workerman\Worker::runAll()
+#10 /www/wwwroot/saipayment-server/start.php(5): support\App::run()
+#11 {main} [] []

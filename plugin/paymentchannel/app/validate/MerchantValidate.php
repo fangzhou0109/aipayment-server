@@ -38,6 +38,10 @@ class MerchantValidate extends BaseValidate
         'status'              => 'require|in:1,2',
         'ip_whitelist'        => 'requireIf:ip_whitelist_status,1|checkIpList',
         'ip_whitelist_status' => 'in:1,2',
+        'id'                  => 'require|integer|gt:0',
+        'direction'           => 'require|in:increase,decrease',
+        'amount'              => 'require|float|gt:0',
+        'remark'              => 'max:200',
     ];
 
     /**
@@ -63,6 +67,15 @@ class MerchantValidate extends BaseValidate
         'status.in'                   => '状态值非法',
         'ip_whitelist_status.in'      => 'IP 白名单开关值非法',
         'ip_whitelist.requireIf'      => '开启 IP 白名单时必须配置至少一个允许的 IP',
+        'id.require'                  => '请指定商户',
+        'id.integer'                  => '商户 ID 非法',
+        'id.gt'                       => '请指定商户',
+        'direction.require'           => '请选择调账方向',
+        'direction.in'                => '调账方向非法',
+        'amount.require'              => '请填写调账金额',
+        'amount.float'                => '调账金额必须为数字',
+        'amount.gt'                   => '调账金额必须大于 0',
+        'remark.max'                  => '备注不能超过 200 字',
     ];
 
     /**
@@ -75,6 +88,7 @@ class MerchantValidate extends BaseValidate
         'save' => ['mch_id', 'name', 'login_name', 'password', 'status', 'ip_whitelist', 'ip_whitelist_status'],
         // 修改：rate 不可改；rate_transfer / single_min / single_max 可由专项弹窗提交
         'update' => ['name', 'login_name', 'rate_transfer', 'single_min', 'single_max', 'status', 'ip_whitelist', 'ip_whitelist_status'],
+        'adjustBalance' => ['id', 'direction', 'amount', 'remark'],
     ];
 
     /**

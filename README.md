@@ -1,9 +1,9 @@
 # SaiPayment 后端（Webman）部署指南
 
-本文档仅针对 **`server` 目录**（Webman 后端源码包），面向接手部署的运维 / 开发同学。  
+本文档仅针对 `**server` 目录**（Webman 后端源码包），面向接手部署的运维 / 开发同学。  
 按章节顺序操作即可完成**首次上线**与**日常更新**，不依赖仓库外的脚本或工具。
 
-后端基于 **Webman / Workerman**（PHP ≥ 8.1），进程默认监听 **`0.0.0.0:8787`**，对外由 **Nginx 反向代理**暴露 HTTP API。
+后端基于 **Webman / Workerman**（PHP ≥ 8.1），进程默认监听 `**0.0.0.0:8787`**，对外由 **Nginx 反向代理**暴露 HTTP API。
 
 ---
 
@@ -27,28 +27,32 @@
 
 ### 1.1 你拿到的是什么
 
-交付物为 **`server/` 目录**（本文档所在目录即为包根目录，下文记为 **`$APP_ROOT`**），包含：
+交付物为 `**server/` 目录**（本文档所在目录即为包根目录，下文记为 `**$APP_ROOT`**），包含：
 
-| 路径 | 说明 |
-|------|------|
-| `app/` | 项目业务代码 |
-| `config/` | 应用与中间件配置 |
-| `plugin/saiadmin/` | SaiAdmin 6.x 核心 |
-| `plugin/paymentchannel/` | 四方支付业务插件 |
-| `public/` | 静态资源（如商户 PHP Demo 压缩包） |
-| `start.php` | Webman 启动入口 |
-| `composer.json` / `composer.lock` | PHP 依赖锁定 |
-| `plugin/paymentchannel/db/saipayment.sql` | **完整数据库**（首次安装导入） |
+
+| 路径                                        | 说明                     |
+| ----------------------------------------- | ---------------------- |
+| `app/`                                    | 项目业务代码                 |
+| `config/`                                 | 应用与中间件配置               |
+| `plugin/saiadmin/`                        | SaiAdmin 6.x 核心        |
+| `plugin/paymentchannel/`                  | 四方支付业务插件               |
+| `public/`                                 | 静态资源（如商户 PHP Demo 压缩包） |
+| `start.php`                               | Webman 启动入口            |
+| `composer.json` / `composer.lock`         | PHP 依赖锁定               |
+| `plugin/paymentchannel/db/saipayment.sql` | **完整数据库**（首次安装导入）      |
+
 
 ### 1.2 交付时建议包含 / 排除
 
-| 包含 | 排除（接收方自行生成） |
-|------|------------------------|
-| 全部 PHP 源码与 `composer.lock` | `.env`（敏感配置，单独安全下发） |
-| **`plugin/paymentchannel/db/saipayment.sql`**（完整数据库） | `runtime/`（日志、PID、缓存） |
-| 本 `README.md` | `vendor/`（在服务器执行 `composer install` 生成，也可一并打包以省时间） |
 
-> 数据库只需交付 **`saipayment.sql`** 即可首次建库；`plugin/paymentchannel/db/migrations/` 供**已有库升级**；其余拆分 SQL（`paymentchannel.sql`、`menu.sql` 等）为开发参考，**部署不必使用**。
+| 包含                                                   | 排除（接收方自行生成）                                        |
+| ---------------------------------------------------- | -------------------------------------------------- |
+| 全部 PHP 源码与 `composer.lock`                           | `.env`（敏感配置，单独安全下发）                                |
+| `**plugin/paymentchannel/db/saipayment.sql`**（完整数据库） | `runtime/`（日志、PID、缓存）                              |
+| 本 `README.md`                                        | `vendor/`（在服务器执行 `composer install` 生成，也可一并打包以省时间） |
+
+
+> 数据库只需交付 `**saipayment.sql**` 即可首次建库；`plugin/paymentchannel/db/migrations/` 供**已有库升级**；其余拆分 SQL（`paymentchannel.sql`、`menu.sql` 等）为开发参考，**部署不必使用**。
 
 ### 1.3 与前端的关系
 
@@ -90,11 +94,13 @@ Webman 进程（$APP_ROOT，端口 8787）
 
 ### 3.2 PHP
 
-| 项目 | 要求 |
-|------|------|
-| 版本 | **PHP ≥ 8.1**（建议 8.2 / 8.3） |
-| 运行方式 | **CLI**（非 php-fpm 网站模式） |
+
+| 项目   | 要求                                                  |
+| ---- | --------------------------------------------------- |
+| 版本   | **PHP ≥ 8.1**（建议 8.2 / 8.3）                         |
+| 运行方式 | **CLI**（非 php-fpm 网站模式）                             |
 | 禁用函数 | 须允许 `exec`、`shell_exec`、`proc_open` 等（Workerman 依赖） |
+
 
 **建议扩展**（宝塔：软件商店 → PHP → 安装扩展）：
 
@@ -102,12 +108,14 @@ Webman 进程（$APP_ROOT，端口 8787）
 pdo_mysql   mbstring   json   openssl   curl   fileinfo   gd   bcmath   redis（强烈推荐）
 ```
 
-| 扩展 | 用途 |
-|------|------|
-| `bcmath` | 金额运算（必须） |
-| `openssl` | RSA 签名、商户密钥（必须） |
-| `redis` | 验证码、网关限流、日限额、路由轮询等（生产强烈建议） |
-| `event` | Linux 下提升并发（可选） |
+
+| 扩展        | 用途                         |
+| --------- | -------------------------- |
+| `bcmath`  | 金额运算（必须）                   |
+| `openssl` | RSA 签名、商户密钥（必须）            |
+| `redis`   | 验证码、网关限流、日限额、路由轮询等（生产强烈建议） |
+| `event`   | Linux 下提升并发（可选）            |
+
 
 确认 CLI 版本（**必须与命令行 `php` 一致**）：
 
@@ -120,7 +128,7 @@ php -m | grep -E 'pdo_mysql|bcmath|openssl|redis'
 
 - **MySQL 5.7+** 或 **MariaDB 10.3+**（`saipayment.sql` 由 MySQL 8.0 导出，建议生产使用 **8.0+**）
 - 字符集：**utf8mb4**
-- 库名与 `.env` 中 `DB_NAME` 一致，默认 **`saipayment`**
+- 库名与 `.env` 中 `DB_NAME` 一致，默认 `**saipayment`**
 
 ### 3.4 其他
 
@@ -147,17 +155,19 @@ php -m | grep -E 'pdo_mysql|bcmath|openssl|redis'
 └── README.md
 ```
 
-| 项 | 约定 |
-|----|------|
+
+| 项         | 约定                                     |
+| --------- | -------------------------------------- |
 | Webman 监听 | `0.0.0.0:8787`（见 `config/process.php`） |
-| API 对外前缀 | 由 Nginx 决定，下文以 `/prod` 为例 |
-| 进程运行用户 | 建议与 Nginx / 文件属主一致（如 `www`） |
+| API 对外前缀  | 由 Nginx 决定，下文以 `/prod` 为例              |
+| 进程运行用户    | 建议与 Nginx / 文件属主一致（如 `www`）            |
+
 
 ---
 
 ## 5. 首次部署（从零到跑通）
 
-以下命令均在 **`$APP_ROOT`** 下执行。
+以下命令均在 `**$APP_ROOT**` 下执行。
 
 ### 步骤 1：上传并解压源码
 
@@ -226,17 +236,19 @@ FRONTEND_DIR = saiadmin-artd
 
 #### 4.1 完整库文件说明
 
-**`plugin/paymentchannel/db/saipayment.sql`** 是本系统**唯一推荐的首次安装数据库包**（phpMyAdmin 导出，约 39 张表），已包含：
+`**plugin/paymentchannel/db/saipayment.sql`** 是本系统**唯一推荐的首次安装数据库包**（phpMyAdmin 导出，约 39 张表），已包含：
 
-| 类别 | 表前缀 / 示例 | 内容 |
-|------|----------------|------|
-| SaiAdmin 平台核心 | `sa_system_*` | 用户、角色、菜单、权限、字典、部门、配置、操作日志等 |
-| 四方支付业务 | `sa_pay_*` | 商户、通道、订单、提现、充值、路由、资金流水等 |
-| 文章模块（可选） | `sa_article*` | 文章与轮播 |
-| 工具 | `sa_tool_*` | 代码生成器、**定时任务**（含支付通知重试、订单超时关闭） |
+
+| 类别            | 表前缀 / 示例      | 内容                             |
+| ------------- | ------------- | ------------------------------ |
+| SaiAdmin 平台核心 | `sa_system_*` | 用户、角色、菜单、权限、字典、部门、配置、操作日志等     |
+| 四方支付业务        | `sa_pay_*`    | 商户、通道、订单、提现、充值、路由、资金流水等        |
+| 文章模块（可选）      | `sa_article*` | 文章与轮播                          |
+| 工具            | `sa_tool_*`   | 代码生成器、**定时任务**（含支付通知重试、订单超时关闭） |
+
 
 文件内**已带初始化数据**：平台菜单与权限、字典、定时任务、示例通道/路由，以及**测试商户**等。  
-`.env` 中 `DB_NAME` 建议与库名一致，默认为 **`saipayment`**。
+`.env` 中 `DB_NAME` 建议与库名一致，默认为 `**saipayment`**。
 
 > **安全提示**：SQL 中可能含导出环境的测试商户密钥、RSA 私钥等。**生产上线后务必**：修改 `admin` 密码、重置测试商户密钥、修改 JWT 密钥（见步骤 7），勿直接拿测试数据对接真实资金。
 
@@ -272,10 +284,12 @@ mysql -usaipayment -p saipayment -e "SELECT id,name,status FROM sa_tool_crontab 
 
 #### 4.4 默认账号与上线必做
 
-| 账号 | 用途 | 说明 |
-|------|------|------|
-| `admin` | 平台运营后台 | 初始密码一般为 **`123456`**（SaiAdmin 默认），**登录后立即修改** |
-| 测试商户（如 `TEST_M001`） | 联调 / 演示 | 含示例密钥，生产请停用或重置密钥后再用 |
+
+| 账号                  | 用途      | 说明                                            |
+| ------------------- | ------- | --------------------------------------------- |
+| `admin`             | 平台运营后台  | 初始密码一般为 `**123456**`（SaiAdmin 默认），**登录后立即修改** |
+| 测试商户（如 `TEST_M001`） | 联调 / 演示 | 含示例密钥，生产请停用或重置密钥后再用                           |
+
 
 #### 4.5 已有库升级（非首次安装）
 
@@ -341,7 +355,7 @@ curl -s -o /dev/null -w 'nginx prod -> %{http_code}\n' https://你的API域名/p
 
 将以下 `location` 放入 **API 域名** 的 `server { }` 中（宝塔：网站 → 设置 → 配置文件）。
 
-**必须传递真实客户端 IP**（`X-Real-IP` / `X-Forwarded-For`），否则商户 **IP 白名单**（门户登录、`/pay/*` 网关）无法正确校验。
+**必须传递真实客户端 IP**（`X-Real-IP` / `X-Forwarded-For`），否则商户 **IP 白名单**（门户登录、`/pay/`* 网关）无法正确校验。
 
 ```nginx
 # 生产 API 前缀（与前端 VITE_API_URL、notify_domain 保持一致）
@@ -408,11 +422,13 @@ location /api/ {
 }
 ```
 
-| 要点 | 说明 |
-|------|------|
+
+| 要点                  | 说明                                                  |
+| ------------------- | --------------------------------------------------- |
 | `proxy_pass` 末尾 `/` | `/prod/core/user/index` → Webman `/core/user/index` |
-| 只选一个主前缀 | `/prod` 与 `/api` 可并存，但前端只能对接其中一个 |
-| HTTPS | 在 Nginx 层配置证书；Webman 仍监听本机 HTTP 8787 |
+| 只选一个主前缀             | `/prod` 与 `/api` 可并存，但前端只能对接其中一个                    |
+| HTTPS               | 在 Nginx 层配置证书；Webman 仍监听本机 HTTP 8787                |
+
 
 ---
 
@@ -428,13 +444,15 @@ location /api/ {
 'api_path_prefix' => '/prod',
 ```
 
-| 能力 | URL 示例 |
-|------|----------|
-| 商户下单 | `{notify_domain}/pay/submitOrder` |
-| 上游代收回调 | `{notify_domain}/pay/notify/{通道编码}` |
+
+| 能力     | URL 示例                                      |
+| ------ | ------------------------------------------- |
+| 商户下单   | `{notify_domain}/pay/submitOrder`           |
+| 上游代收回调 | `{notify_domain}/pay/notify/{通道编码}`         |
 | 上游代付回调 | `{notify_domain}/pay/transferNotify/{通道编码}` |
-| 平台后台 | `{notify_domain}/core/...` |
-| 商户门户 | `{notify_domain}/mapi/...` |
+| 平台后台   | `{notify_domain}/core/...`                  |
+| 商户门户   | `{notify_domain}/mapi/...`                  |
+
 
 修改本文件或 `config/`、`.env` 后执行：
 
@@ -484,9 +502,9 @@ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8787/
 
 ### 8.3 回滚
 
-1. 恢复更新前的代码 tar 包；  
-2. `composer install`（若 vendor 一并备份可跳过）；  
-3. 数据库用步骤 8.1 的 `mysqldump` 备份恢复；  
+1. 恢复更新前的代码 tar 包；
+2. `composer install`（若 vendor 一并备份可跳过）；
+3. 数据库用步骤 8.1 的 `mysqldump` 备份恢复；
 4. `php start.php restart -d`。
 
 > 仅在**全新空机**灾难恢复时，才可再次导入 `saipayment.sql`（会丢失业务数据，相当于重装）。
@@ -507,13 +525,15 @@ cd /opt/saipayment/server && php start.php start -d
 
 在 `$APP_ROOT` 下执行：
 
-| 命令 | 场景 |
-|------|------|
-| `php start.php start -d` | 首次 / 停机后启动 |
-| `php start.php stop` | 维护前停止 |
-| `php start.php restart -d` | 改配置、换 `.env`、大版本更新 |
-| `php start.php reload` | 仅改 PHP 业务代码 |
-| `php start.php status` | 查看 worker 是否 `[OK]` |
+
+| 命令                         | 场景                  |
+| -------------------------- | ------------------- |
+| `php start.php start -d`   | 首次 / 停机后启动          |
+| `php start.php stop`       | 维护前停止               |
+| `php start.php restart -d` | 改配置、换 `.env`、大版本更新  |
+| `php start.php reload`     | 仅改 PHP 业务代码         |
+| `php start.php status`     | 查看 worker 是否 `[OK]` |
+
 
 日志：
 
@@ -539,9 +559,9 @@ runtime/logs/stdout.log
 
 ### 10.3 IP 白名单不生效
 
-1. Nginx 未配置 `X-Real-IP` / `X-Forwarded-For`（见 §6）。  
-2. 平台后台商户：白名单开关为「开启」且已填写真实出口 IP。  
-3. 白名单 IP 与商户实际公网 IP 不一致。  
+1. Nginx 未配置 `X-Real-IP` / `X-Forwarded-For`（见 §6）。
+2. 平台后台商户：白名单开关为「开启」且已填写真实出口 IP。
+3. 白名单 IP 与商户实际公网 IP 不一致。
 4. 代码更新后未 `reload` / `restart`。
 
 ### 10.4 接口 404
@@ -600,23 +620,28 @@ php -v
 
 ## 附录 A：本包内关键路径速查
 
-| 用途 | 路径 |
-|------|------|
-| 环境变量 | `.env` |
-| 启动入口 | `start.php` |
-| 监听端口 | `config/process.php` → `8787` |
-| 支付业务配置 | `plugin/paymentchannel/config/app.php` |
-| JWT 密钥 | `config/plugin/tinywan/jwt/app.php` |
-| **完整数据库（首次安装）** | **`plugin/paymentchannel/db/saipayment.sql`** |
-| 增量迁移（已有库升级） | `plugin/paymentchannel/db/migrations/*.sql` |
-| 开发约定（可选阅读） | `AGENTS.md` |
+
+| 用途              | 路径                                            |
+| --------------- | --------------------------------------------- |
+| 环境变量            | `.env`                                        |
+| 启动入口            | `start.php`                                   |
+| 监听端口            | `config/process.php` → `8787`                 |
+| 支付业务配置          | `plugin/paymentchannel/config/app.php`        |
+| JWT 密钥          | `config/plugin/tinywan/jwt/app.php`           |
+| **完整数据库（首次安装）** | `**plugin/paymentchannel/db/saipayment.sql`** |
+| 增量迁移（已有库升级）     | `plugin/paymentchannel/db/migrations/*.sql`   |
+| 开发约定（可选阅读）      | `AGENTS.md`                                   |
+
 
 ## 附录 B：`db/` 目录文件说明
 
-| 文件 | 部署是否必需 | 说明 |
-|------|----------------|------|
-| **`saipayment.sql`** | **首次安装必需** | 全库结构 + 种子数据，一键导入 |
-| `migrations/*.sql` | 升级时需要 | 按版本增量执行，不可重复跑已执行过的脚本 |
-| `paymentchannel.sql` | 不必 | 仅业务表 DDL，开发拆分用 |
-| `menu.sql` / `crontab.sql` | 不必 | 已合并进 `saipayment.sql` |
-| `plugin/saiadmin/db/saiadmin-*.sql` | 不必 | SaiAdmin 原始种子，已合并进 `saipayment.sql` |
+
+| 文件                                  | 部署是否必需     | 说明                                  |
+| ----------------------------------- | ---------- | ----------------------------------- |
+| `**saipayment.sql**`                | **首次安装必需** | 全库结构 + 种子数据，一键导入                    |
+| `migrations/*.sql`                  | 升级时需要      | 按版本增量执行，不可重复跑已执行过的脚本                |
+| `paymentchannel.sql`                | 不必         | 仅业务表 DDL，开发拆分用                      |
+| `menu.sql` / `crontab.sql`          | 不必         | 已合并进 `saipayment.sql`               |
+| `plugin/saiadmin/db/saiadmin-*.sql` | 不必         | SaiAdmin 原始种子，已合并进 `saipayment.sql` |
+
+

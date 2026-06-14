@@ -8,6 +8,7 @@
 
 namespace plugin\paymentchannel\app\controller\admin;
 
+use plugin\paymentchannel\app\exception\PaymentException;
 use plugin\paymentchannel\app\logic\MerchantLogic;
 use plugin\paymentchannel\app\validate\MerchantValidate;
 use plugin\saiadmin\basic\BaseController;
@@ -139,6 +140,31 @@ class MerchantController extends BaseController
         }
         $result = $this->logic->resetKey($id);
         return $this->success($result, '密钥已重置');
+    }
+
+    /**
+     * 人工调账：增加/扣减商户可用余额（写资金流水，禁止直改 balance 字段）
+     * 路由：POST /core/pay/merchant/adjustBalance
+     */
+    #[Permission('商户余额调账', 'pay:merchant:adjustBalance')]
+    public function adjustBalance(Request $request): Response
+    {
+        // Webman 的 input() 须传字段名；JSON 请求体已由框架解析到 post()
+        $data = $request->post();
+        $this->validate('adjustBalance', $data);
+
+        try {
+            $result = $this->logic->adjustBalance(
+                (int) $data['id'],
+                (string) $data['direction'],
+                (string) $data['amount'],
+                (string) ($data['remark'] ?? ''),
+            );
+        } catch (PaymentException $e) {
+            return $this->fail($e->getMessage());
+        }
+
+        return $this->success($result, '调账成功');
     }
 
     /**

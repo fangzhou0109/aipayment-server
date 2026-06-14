@@ -69,6 +69,7 @@ Route::group('/core/pay', function () {
     fastRoute('merchant', \plugin\paymentchannel\app\controller\admin\MerchantController::class);
     // 商户重置密钥（非 CRUD，显式注册）
     Route::post('/merchant/resetKey', [\plugin\paymentchannel\app\controller\admin\MerchantController::class, 'resetKey']);
+    Route::post('/merchant/adjustBalance', [\plugin\paymentchannel\app\controller\admin\MerchantController::class, 'adjustBalance']);
     Route::get('/merchant/credentials', [\plugin\paymentchannel\app\controller\admin\MerchantController::class, 'credentials']);
 
     // 上游代收通道管理 CRUD（列表 scope channel_biz IN 1,3）

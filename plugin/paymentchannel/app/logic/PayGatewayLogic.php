@@ -126,9 +126,15 @@ class PayGatewayLogic extends BaseLogic
         if ($authorizedIds === []) {
             throw new PaymentException('商户未配置可用支付通道');
         }
-        $routed = $this->resolveChannel($merchantId, $payType, $amount, $authorizedIds);
-        if ($routed === null) {
-            throw new PaymentException('无可用支付通道');
+        // 后台测试下单可传 _force_channel_id，跳过综合路由/权重直指定通道（与 Demo 走同一适配器）
+        $forceChannelId = (int) ($params['_force_channel_id'] ?? 0);
+        if ($forceChannelId > 0) {
+            $routed = $this->resolveForcedChannel($merchantId, $payType, $amount, $authorizedIds, $forceChannelId);
+        } else {
+            $routed = $this->resolveChannel($merchantId, $payType, $amount, $authorizedIds);
+            if ($routed === null) {
+                throw new PaymentException('无可用支付通道');
+            }
         }
         $channel = $routed['channel'];
         $routeId = (int) $routed['route_id'];
@@ -223,7 +229,9 @@ class PayGatewayLogic extends BaseLogic
                 $result = $adapter->createOrder($request);
 
                 if (!$result->success) {
-                    throw new PaymentException('上游下单失败：' . $result->message);
+                    $channelCode = (string) ($channel['code'] ?? '');
+                    $suffix = $channelCode !== '' ? '（通道 ' . $channelCode . '）' : '';
+                    throw new PaymentException('上游下单失败：' . $result->message . $suffix);
                 }
 
                 $this->updateOrderResult($orderId, [
@@ -353,6 +361,55 @@ class PayGatewayLogic extends BaseLogic
         }
 
         return $this->resolveChannelDirect($payType, $amount, $authorizedIds);
+    }
+
+    /**
+     * 强制指定通道（后台测试下单等场景，须在商户授权白名单内）
+     *
+     * @param int $merchantId 商户ID
+     * @param int $payType 支付类型
+     * @param string $amount 订单金额（元）
+     * @param int[] $authorizedIds 已授权 channel_id
+     * @param int $forceChannelId 指定通道 ID
+     * @return array{route_id:int,channel:array,pick_mode:string}
+     * @throws PaymentException 未授权 / 通道不可用 / 金额规则不匹配
+     */
+    protected function resolveForcedChannel(
+        int $merchantId,
+        int $payType,
+        string $amount,
+        array $authorizedIds,
+        int $forceChannelId,
+    ): array {
+        if (!in_array($forceChannelId, $authorizedIds, true)) {
+            throw new PaymentException('商户未授权该通道，无法测试');
+        }
+
+        $channel = $this->loadActiveChannel($forceChannelId);
+        if ($channel === null) {
+            throw new PaymentException('指定通道不可用（已停用或不存在）');
+        }
+
+        $channelPayType = (int) ($channel['pay_type'] ?? 0);
+        if ($channelPayType !== $payType) {
+            throw new PaymentException('指定通道支付类型与请求不一致');
+        }
+
+        $biz = (int) ($channel['channel_biz'] ?? 0);
+        if (!in_array($biz, [Channel::BIZ_PAY_ONLY, Channel::BIZ_BOTH], true)) {
+            throw new PaymentException('指定通道不具备代收能力');
+        }
+
+        $moneyRule = (string) ($channel['money_rule'] ?? '');
+        if ($moneyRule !== '' && !RouteService::matchMoneyRule($moneyRule, $amount)) {
+            throw new PaymentException('订单金额不满足该通道金额规则');
+        }
+
+        return [
+            'route_id'  => 0,
+            'pick_mode' => 'forced',
+            'channel'   => $this->formatChannelForAdapter($channel),
+        ];
     }
 
     /**
@@ -524,7 +581,11 @@ class PayGatewayLogic extends BaseLogic
     }
 
     /**
-     * 加载启用中的通道记录
+     * 加载启用中的通道记录（供路由选路与适配器构造）
+     *
+     * 须直接读模型属性组装数组，**不可** toArray()：Channel 模型将 upstream_key /
+     * upstream_private_key 列入 $hidden，toArray() 会丢失密钥，导致适配器用空密钥签名、
+     * 上游返回「签名校验失败」。回调侧 {@see NotifyGatewayLogic::loadChannel} 已用属性读取。
      *
      * @param int $channelId 通道ID
      * @return array|null
@@ -532,7 +593,27 @@ class PayGatewayLogic extends BaseLogic
     protected function loadActiveChannel(int $channelId): ?array
     {
         $channel = Channel::where('id', $channelId)->where('status', 1)->find();
-        return $channel ? $channel->toArray() : null;
+        if (!$channel) {
+            return null;
+        }
+
+        return [
+            'id'                   => (int) $channel->id,
+            'code'                 => (string) $channel->code,
+            'adapter'              => (string) $channel->adapter,
+            'transfer_adapter'     => (string) ($channel->transfer_adapter ?? ''),
+            'channel_biz'          => (int) ($channel->channel_biz ?? 0),
+            'gateway_url'          => (string) ($channel->gateway_url ?? ''),
+            'upstream_mch_id'      => (string) ($channel->upstream_mch_id ?? ''),
+            'upstream_key'         => (string) ($channel->upstream_key ?? ''),
+            'upstream_public_key'  => (string) ($channel->upstream_public_key ?? ''),
+            'upstream_private_key' => (string) ($channel->upstream_private_key ?? ''),
+            'pay_type'             => (int) ($channel->pay_type ?? 0),
+            'rate'                 => (string) ($channel->rate ?? '0'),
+            'rate_self'            => (string) ($channel->rate_self ?? '0'),
+            'money_rule'           => (string) ($channel->money_rule ?? ''),
+            'status'               => (int) ($channel->status ?? 0),
+        ];
     }
 
     /**
