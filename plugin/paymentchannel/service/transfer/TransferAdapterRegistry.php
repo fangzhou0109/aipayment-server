@@ -40,6 +40,11 @@ class TransferAdapterRegistry
             'name' => '银行卡代付',
             'class' => \plugin\paymentchannel\service\transfer\adapters\ScanTransferAdapter::class,
         ],
+        // KBZPay 代付：NPAY/易支付协议缅甸代付，走 api.php?act=payout（code=0 成功，金额 MMK 元）
+        'kbzpay_transfer' => [
+            'name' => 'KBZPay 代付（缅甸）',
+            'class' => \plugin\paymentchannel\service\transfer\adapters\KbzPayTransferAdapter::class,
+        ],
     ];
 
     /**

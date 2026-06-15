@@ -38,6 +38,10 @@ class ChannelAdapterRegistry
         'wechat_scan' => ['name' => '微信扫码', 'class' => \plugin\paymentchannel\service\channel\adapters\ScanPayAdapter::class],
         // LQPAY：另一套 SaiPayment 部署作为上游，走商户网关 /pay/submitOrder、/pay/query
         'lqpay' => ['name' => 'LQPAY（SaiPayment 同源）', 'class' => \plugin\paymentchannel\service\channel\adapters\LqpayAdapter::class],
+        // NPay：彩虹易支付协议的缅甸聚合上游，走 mapi.php 下单、api.php 查单
+        'npay' => ['name' => 'NPay（彩虹易支付/缅甸）', 'class' => \plugin\paymentchannel\service\channel\adapters\NpayAdapter::class],
+        // KBZPay：NPAY 协议的缅甸 KBZPay 专用通道，固定 type=kbzpay、回调认 PAY_SUCCESS、payurl 补全域名
+        'kbzpay' => ['name' => 'KBZPay（缅甸）', 'class' => \plugin\paymentchannel\service\channel\adapters\KbzPayAdapter::class],
     ];
 
     /**
