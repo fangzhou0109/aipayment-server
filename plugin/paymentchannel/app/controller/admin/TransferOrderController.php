@@ -3,7 +3,7 @@
 // | SaiPayment 四方支付渠道系统
 // +----------------------------------------------------------------------
 // | 插件：paymentchannel（命名空间 plugin\paymentchannel）
-// | 文件：商户提现管理控制器（平台后台）
+// | 文件：API 代付订单管理控制器（平台后台）
 // +----------------------------------------------------------------------
 
 namespace plugin\paymentchannel\app\controller\admin;
@@ -17,17 +17,17 @@ use support\Response;
 use Throwable;
 
 /**
- * 商户提现管理控制器（平台后台 /core/pay/withdraw）
+ * API 代付订单管理控制器（平台后台 /core/pay/transferOrder）
  *
- * 提现由商户门户发起、平台风控审核驱动，后台**不提供**手工增删改，
- * 仅开放列表(index)、详情(read)、审核(audit)。权限码 pay:withdraw:*。
- * 审核支持常规通过 / 代付下发 / 拒绝；已审核通过单可单独发起代付下发——全程资金安全由
- * {@see WithdrawLogic} 状态机保证。
+ * 与「提现管理」物理拆分：本菜单只管 source=2 的「商户服务端 API 代付」单
+ * （下游调 /pay/transfer 进单），提现管理只管 source=1 的商户门户人工提现。
+ * 二者共用底层 sa_pay_withdraw 表与 {@see WithdrawLogic} 状态机，权限码独立 pay:transferOrder:*。
+ * 后台不提供手工增删改，仅开放列表(index)、详情(read)、审核(audit)、下发(disburse)。
  */
-class WithdrawController extends BaseController
+class TransferOrderController extends BaseController
 {
     /**
-     * 构造：注入提现逻辑层
+     * 构造：注入提现（代付）逻辑层
      */
     public function __construct()
     {
@@ -36,35 +36,36 @@ class WithdrawController extends BaseController
     }
 
     /**
-     * 提现列表
-     * 路由：GET /core/pay/withdraw/index
+     * 代付订单列表（仅 API 代付，source=2）
+     * 路由：GET /core/pay/transferOrder/index
      *
      * @param Request $request
      * @return Response
      */
-    #[Permission('提现数据列表', 'pay:withdraw:index')]
+    #[Permission('代付订单列表', 'pay:transferOrder:index')]
     public function index(Request $request): Response
     {
-        // 搜索条件（搜索器在 Withdraw 模型中定义：keyword/merchant_id/status）
+        // 搜索条件（Withdraw 模型搜索器：keyword/out_biz_no/merchant_id/status）
         $where = $request->more([
             ['keyword', ''],
+            ['out_biz_no', ''],
             ['merchant_id', ''],
             ['status', ''],
         ]);
-        // 本菜单仅管「商户门户人工提现」，API 代付单在「代付管理」菜单
-        $where['source'] = Withdraw::SOURCE_WITHDRAW;
+        // 本菜单仅管「API 代付」单
+        $where['source'] = Withdraw::SOURCE_API_TRANSFER;
         $query = $this->logic->search($where);
         return $this->success($this->logic->getList($query));
     }
 
     /**
-     * 提现详情
-     * 路由：GET /core/pay/withdraw/read
+     * 代付订单详情
+     * 路由：GET /core/pay/transferOrder/read
      *
      * @param Request $request
      * @return Response
      */
-    #[Permission('提现数据读取', 'pay:withdraw:read')]
+    #[Permission('代付订单读取', 'pay:transferOrder:read')]
     public function read(Request $request): Response
     {
         $model = $this->logic->read($request->input('id', ''));
@@ -76,12 +77,12 @@ class WithdrawController extends BaseController
 
     /**
      * 可选代付通道列表（审核「代付下发」时使用）
-     * 路由：GET /core/pay/withdraw/transferChannels
+     * 路由：GET /core/pay/transferOrder/transferChannels
      *
      * @param Request $request
      * @return Response
      */
-    #[Permission('提现审核', 'pay:withdraw:audit')]
+    #[Permission('代付订单审核', 'pay:transferOrder:audit')]
     public function transferChannels(Request $request): Response
     {
         $merchantId = (int) $request->get('merchant_id', 0);
@@ -90,24 +91,23 @@ class WithdrawController extends BaseController
     }
 
     /**
-     * 审核提现
-     * 路由：POST /core/pay/withdraw/audit
+     * 审核代付订单
+     * 路由：POST /core/pay/transferOrder/audit
      *
      * action：pass=常规通过（财务线下已打款，扣冻结置成功）| disburse=代付下发 | reject=拒绝解冻退款。
-     * disburse 时需传 channel_id（代付通道主键）。
+     * disburse 时需传 channel_id（代付通道主键）。出款成功/失败均异步回调下游 notify_url。
      *
      * @param Request $request { id, action, remark, channel_id? }
      * @return Response
      */
-    #[Permission('提现审核', 'pay:withdraw:audit')]
+    #[Permission('代付订单审核', 'pay:transferOrder:audit')]
     public function audit(Request $request): Response
     {
         $id = $request->post('id', '');
         if (empty($id)) {
-            return $this->fail('请选择要审核的提现单');
+            return $this->fail('请选择要审核的代付单');
         }
 
-        // action 优先；兼容旧版 approve 布尔入参
         $action = (string) $request->post('action', '');
         if ($action === '') {
             $approve = filter_var($request->post('approve', false), FILTER_VALIDATE_BOOLEAN);
@@ -135,18 +135,18 @@ class WithdrawController extends BaseController
     }
 
     /**
-     * 对已审核通过的提现单发起代付下发
-     * 路由：POST /core/pay/withdraw/disburse
+     * 对已审核通过的代付单发起代付下发
+     * 路由：POST /core/pay/transferOrder/disburse
      *
      * @param Request $request { id, channel_id }
      * @return Response
      */
-    #[Permission('提现审核', 'pay:withdraw:audit')]
+    #[Permission('代付订单审核', 'pay:transferOrder:audit')]
     public function disburse(Request $request): Response
     {
         $id = $request->post('id', '');
         if (empty($id)) {
-            return $this->fail('请选择要下发的提现单');
+            return $this->fail('请选择要下发的代付单');
         }
         $channelId = (int) $request->post('channel_id', 0);
 

@@ -81,6 +81,12 @@ INSERT INTO `sa_system_menu` VALUES (9055, 9054, '数据列表', '', 'pay:withdr
 INSERT INTO `sa_system_menu` VALUES (9056, 9054, '读取', '', 'pay:withdraw:read', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-08 00:00:00', '2026-06-08 00:00:00', NULL);
 INSERT INTO `sa_system_menu` VALUES (9057, 9054, '审核', '', 'pay:withdraw:audit', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-08 00:00:00', '2026-06-08 00:00:00', NULL);
 
+-- ============== 5b. 代付管理（API 代付订单 source=2，与提现审核物理拆分） ==============
+INSERT INTO `sa_system_menu` VALUES (9100, 9000, '代付管理', 'PayTransferOrder', NULL, 2, 'transfer-order', '/payment/transfer-order', NULL, 'ri:send-plane-line', 58, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, 'API 代付订单（source=2）', 1, 1, '2026-06-17 00:00:00', '2026-06-17 00:00:00', NULL);
+INSERT INTO `sa_system_menu` VALUES (9101, 9100, '数据列表', '', 'pay:transferOrder:index', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-17 00:00:00', '2026-06-17 00:00:00', NULL);
+INSERT INTO `sa_system_menu` VALUES (9102, 9100, '读取', '', 'pay:transferOrder:read', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-17 00:00:00', '2026-06-17 00:00:00', NULL);
+INSERT INTO `sa_system_menu` VALUES (9103, 9100, '审核', '', 'pay:transferOrder:audit', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-17 00:00:00', '2026-06-17 00:00:00', NULL);
+
 -- ============== 6. 充值审核 ==============
 INSERT INTO `sa_system_menu` VALUES (9064, 9000, '充值审核', 'PayRecharge', NULL, 2, 'recharge', '/payment/recharge', NULL, 'ri:wallet-3-line', 50, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-08 00:00:00', '2026-06-08 00:00:00', NULL);
 INSERT INTO `sa_system_menu` VALUES (9065, 9064, '数据列表', '', 'pay:recharge:index', 3, '', '', NULL, '', 100, NULL, 2, 2, 2, 2, 2, 0, NULL, 1, NULL, 1, 1, '2026-06-08 00:00:00', '2026-06-08 00:00:00', NULL);

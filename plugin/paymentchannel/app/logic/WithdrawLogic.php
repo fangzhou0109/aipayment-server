@@ -13,6 +13,7 @@ use plugin\paymentchannel\app\exception\PaymentException;
 use plugin\paymentchannel\app\model\BankCard;
 use plugin\paymentchannel\app\model\Channel;
 use plugin\paymentchannel\app\model\MerchantChannel;
+use plugin\paymentchannel\app\model\NotifyLog;
 use plugin\paymentchannel\app\model\Withdraw;
 use plugin\paymentchannel\service\AmountHelper;
 use plugin\paymentchannel\service\RateResolver;
@@ -339,6 +340,58 @@ class WithdrawLogic extends PaymentBaseLogic
         }
 
         return $list;
+    }
+
+    /**
+     * 商户门户手动重推「API 代付」结果通知到下游（仅本商户、仅 source=API代付）
+     *
+     * 适用场景：下游因网络等原因漏收平台代付结果回调，商户在门户「代付订单」页手动重推。
+     * 仅终态（成功/代付失败）可重推；优先「原样重放」已存在的通知日志（含原签名体），
+     * 无历史日志则按当前终态重新首发，全部委托 {@see MerchantNotifyService}。
+     *
+     * @param int|string $id 代付单ID
+     * @param int $merchantId 当前登录商户ID（取自 token，防越权）
+     * @return array{success:bool, message:string}
+     * @throws PaymentException 单不存在 / 非终态 / 无通知地址
+     */
+    public function renotifyByMerchant(int|string $id, int $merchantId): array
+    {
+        $withdraw = Withdraw::where('id', $id)
+            ->where('merchant_id', $merchantId)
+            ->where('source', Withdraw::SOURCE_API_TRANSFER)
+            ->find();
+        if (!$withdraw) {
+            throw new PaymentException('代付单不存在');
+        }
+        $data = $withdraw->toArray();
+
+        if (trim((string) ($data['notify_url'] ?? '')) === '') {
+            throw new PaymentException('该代付单未设置下游通知地址，无需通知');
+        }
+
+        $status = (int) ($data['status'] ?? 0);
+        if (!in_array($status, [Withdraw::STATUS_SUCCESS, Withdraw::STATUS_PAY_FAILED], true)) {
+            throw new PaymentException('代付处理中，暂无可推送的结果通知');
+        }
+
+        $service = new MerchantNotifyService();
+
+        // 优先原样重放最近一条代付通知日志（保持与首发一致的签名体）
+        $log = NotifyLog::where('order_no', (string) ($data['withdraw_no'] ?? ''))
+            ->where('biz_type', NotifyLog::BIZ_TRANSFER)
+            ->order('id', 'desc')
+            ->find();
+        if ($log) {
+            return $service->resendManual((int) $log->id);
+        }
+
+        // 无历史通知日志：按当前终态重新首发
+        $success = $status === Withdraw::STATUS_SUCCESS;
+        $ok = $service->dispatchTransfer($data, $success, $success ? '' : (string) ($data['audit_remark'] ?? ''));
+        return [
+            'success' => $ok,
+            'message' => $ok ? '通知已重新投递，商户已回应 SUCCESS' : '通知投递失败，将按退避策略继续自动重试',
+        ];
     }
 
     /**

@@ -122,6 +122,14 @@ Route::group('/core/pay', function () {
     Route::post('/withdraw/audit', [\plugin\paymentchannel\app\controller\admin\WithdrawController::class, 'audit']);
     Route::post('/withdraw/disburse', [\plugin\paymentchannel\app\controller\admin\WithdrawController::class, 'disburse']);
 
+    // API 代付订单管理：只读 + 审核（下游调 /pay/transfer 进单，source=2；与提现管理物理拆分）
+    // 共用 sa_pay_withdraw 与 WithdrawLogic 状态机，权限码独立 pay:transferOrder:*。
+    Route::get('/transferOrder/index', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'index']);
+    Route::get('/transferOrder/read', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'read']);
+    Route::get('/transferOrder/transferChannels', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'transferChannels']);
+    Route::post('/transferOrder/audit', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'audit']);
+    Route::post('/transferOrder/disburse', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'disburse']);
+
     // 商户充值管理：只读 + 审核（充值由商户门户发起，后台不开放手工增删改）
     // 审核通过会把金额计入商户可用余额并写资金流水（事务一致）。
     Route::get('/recharge/index', [\plugin\paymentchannel\app\controller\admin\RechargeController::class, 'index']);
@@ -170,6 +178,11 @@ Route::group('/mapi', function () {
     Route::get('/withdraw/index', [\plugin\paymentchannel\app\controller\merchant\WithdrawController::class, 'index']);
     Route::post('/withdraw/apply', [\plugin\paymentchannel\app\controller\merchant\WithdrawController::class, 'apply']);
     Route::get('/withdraw/read', [\plugin\paymentchannel\app\controller\merchant\WithdrawController::class, 'read']);
+
+    // 代付订单（下游 API 代付单 source=2，只读查询 + 手动重推下游通知）
+    Route::get('/transferOrder/index', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'index']);
+    Route::get('/transferOrder/read', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'read']);
+    Route::post('/transferOrder/renotify', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'renotify']);
 
     // 充值（列表 + 发起申请 + 详情）
     Route::get('/recharge/index', [\plugin\paymentchannel\app\controller\merchant\RechargeController::class, 'index']);

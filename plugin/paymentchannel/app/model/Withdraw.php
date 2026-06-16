@@ -112,6 +112,18 @@ class Withdraw extends BaseModel
     }
 
     /**
+     * 来源搜索器（1商户提现 2API代付；用于后台「提现管理 / 代付管理」拆分）
+     * @param mixed $query
+     * @param mixed $value
+     */
+    public function searchSourceAttr($query, $value): void
+    {
+        if ($value !== '' && $value !== null) {
+            $query->where('source', $value);
+        }
+    }
+
+    /**
      * 商户搜索器：按商户ID精确匹配
      * @param mixed $query
      * @param mixed $value
