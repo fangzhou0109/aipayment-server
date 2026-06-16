@@ -20,12 +20,12 @@ use plugin\paymentchannel\service\channel\dto\PaymentStatusResult;
  *
  * 对接 NPAY Payment Platform 的缅甸 KBZPay 通道（如 `https://prod.mmkgw.xyz/`）。本平台以
  * 「商户」身份调用上游：字段映射 → 易支付 MD5 签名 → mapi.php 下单 → 解析支付链接 →
- * 回调验签（trade_status=PAY_SUCCESS）→ api.php?act=order 主动查单。
+ * 回调验签（trade_status=TRADE_SUCCESS）→ api.php?act=order 主动查单。
  *
  * 与通用 {@see NpayAdapter} 的关键差异（专为 KBZPay 通道定制）：
  *  1) 支付方式**固定** type=kbzpay（该通道仅支持 KBZPay，且当前 sa_pay_channel 表无 extra
  *     列、无法配置 pay_type_map，故在适配器内固定，避免误发 alipay 被上游拒）；
- *  2) 异步回调「已支付」状态为 **PAY_SUCCESS**（NPAY 文档明确「只有 PAY_SUCCESS 是成功」）；
+ *  2) 异步回调「已支付」状态为 **TRADE_SUCCESS**（NPAY 文档明确「trade_status=TRADE_SUCCESS 为成功，其他未完成」）；
  *  3) 上游下单返回的 payurl 为**相对路径**（如 `/pay/kbzpay/xxx/?prepay_id=...`），本适配器
  *     用网关地址补全为**绝对 URL** 后返回，保证商户端可直接跳转调起 KBZPay。
  *
@@ -49,8 +49,8 @@ class KbzPayAdapter extends AbstractChannelAdapter
     /** 易支付统一成功响应码（下单 / 查单） */
     private const SUCCESS_CODE = '1';
 
-    /** 异步回调「已支付」交易状态（NPAY 文档：只有 PAY_SUCCESS 是成功） */
-    private const NOTIFY_PAID = 'PAY_SUCCESS';
+    /** 异步回调「已支付」交易状态（NPAY 文档：trade_status=TRADE_SUCCESS 为成功，其他为未完成） */
+    private const NOTIFY_PAID = 'TRADE_SUCCESS';
 
     /**
      * 向上游（KBZPay）发起代收下单（mapi.php，返回 JSON 支付链接）
@@ -176,7 +176,7 @@ class KbzPayAdapter extends AbstractChannelAdapter
     }
 
     /**
-     * 是否为「已支付」状态（兼容 trade_status=PAY_SUCCESS 与查单 status=1 两种写法）
+     * 是否为「已支付」状态（兼容 trade_status=TRADE_SUCCESS 与查单 status=1 两种写法）
      *
      * @param array $payload 回调/查单报文
      * @return bool

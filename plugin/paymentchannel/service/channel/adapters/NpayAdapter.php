@@ -47,8 +47,8 @@ class NpayAdapter extends AbstractChannelAdapter
     /** 易支付统一成功响应码 */
     private const SUCCESS_CODE = '1';
 
-    /** 异步回调「已支付」交易状态（NPAY 文档：只有 PAY_SUCCESS 是成功） */
-    private const NOTIFY_PAID = 'PAY_SUCCESS';
+    /** 异步回调「已支付」交易状态（NPAY 文档：trade_status=TRADE_SUCCESS 为成功，其他为未完成） */
+    private const NOTIFY_PAID = 'TRADE_SUCCESS';
 
     /** 平台 pay_type(1-7) → NPay type 的默认映射（可被 extra.pay_type_map 覆盖） */
     private const PAY_TYPE_MAP = [
