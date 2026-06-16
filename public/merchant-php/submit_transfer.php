@@ -2,12 +2,14 @@
 /**
  * 代付（提现）下单 Demo — POST /pay/transfer
  *
- * 下游商户服务器调用本接口，向已绑定的收款账号出款（提现）。
+ * 下游商户服务器调用本接口，给下游用户出款（提现）。
  * 与代收下单同一套鉴权（mch_id + time + sign），out_biz_no 为同商户幂等键：
  * 重复提交相同 out_biz_no 不会重复出款，仅返回既有单据状态。
  *
- * 收款账号通过 bank_card_id 指定 —— 须先在商户门户「银行卡」绑定收款卡/钱包账号
- * （如 KBZPay 手机号）后取得其 ID。
+ * 收款人二选一：
+ *   ① 直传收款人信息（推荐，下游用户提现）：account_name + account_no（可带
+ *      bank_name/bank_code/branch_name/account_phone），每单收款人都不同；
+ *   ② 预绑 bank_card_id：商户在门户「银行卡」绑定的自有收款卡 ID（兼容老用法）。
  *
  * 浏览器访问本文件将发起一笔测试代付并输出 JSON；也可在业务代码中 require lib 后自行组装。
  */
@@ -26,13 +28,6 @@ if ((int) $moneyCents <= 0) {
     exit;
 }
 
-// 收款银行卡 ID（商户门户绑卡后获得；代付收款标的）
-$bankCardId = (int) ($input['bank_card_id'] ?? 0);
-if ($bankCardId <= 0) {
-    demo_json_response(['ok' => false, 'message' => '请填写 bank_card_id（商户门户绑定的收款账号 ID）'], 400);
-    exit;
-}
-
 // 商户代付单号（幂等键）：留空自动生成
 $outBizNo = trim((string) ($input['out_biz_no'] ?? ''));
 if ($outBizNo === '') {
@@ -43,11 +38,34 @@ $params = [
     'mch_id'     => (string) demo_config('mch_id'),
     'out_biz_no' => $outBizNo,
     'money'      => $moneyCents,
-    'bank_card_id' => (string) $bankCardId,
     'notify_url' => trim((string) ($input['notify_url'] ?? '')) ?: (string) demo_config('transfer_notify_url'),
     'time'       => (string) time(),
     'client_ip'  => $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1',
 ];
+
+// 收款人：优先直传收款人信息（下游用户每单不同），否则回退预绑 bank_card_id
+$bankCardId = (int) ($input['bank_card_id'] ?? 0);
+$accountName = trim((string) ($input['account_name'] ?? ''));
+$accountNo   = trim((string) ($input['account_no'] ?? ''));
+if ($accountName !== '' || $accountNo !== '') {
+    if ($accountName === '' || $accountNo === '') {
+        demo_json_response(['ok' => false, 'message' => '直传收款人时 account_name 与 account_no 均必填'], 400);
+        exit;
+    }
+    $params['account_name'] = $accountName;
+    $params['account_no']   = $accountNo;
+    foreach (['bank_name', 'bank_code', 'branch_name', 'account_phone'] as $k) {
+        $v = trim((string) ($input[$k] ?? ''));
+        if ($v !== '') {
+            $params[$k] = $v;
+        }
+    }
+} elseif ($bankCardId > 0) {
+    $params['bank_card_id'] = (string) $bankCardId;
+} else {
+    demo_json_response(['ok' => false, 'message' => '请填写收款人信息（account_name + account_no）或预绑卡 bank_card_id'], 400);
+    exit;
+}
 
 $params = demo_sign_params($params);
 

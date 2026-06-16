@@ -474,6 +474,7 @@ CREATE TABLE `sa_pay_withdraw` (
   `bank_name` varchar(100) DEFAULT NULL COMMENT '开户银行（申请时快照）',
   `bank_code` varchar(32) DEFAULT NULL COMMENT '银行编码（申请时快照）',
   `branch_name` varchar(255) DEFAULT NULL COMMENT '开户支行（申请时快照）',
+  `account_phone` varchar(20) DEFAULT NULL COMMENT '收款人手机号（申请时快照，API 直传代付）',
   `amount` decimal(16,4) NOT NULL DEFAULT '0.0000' COMMENT '提现金额（元）',
   `fee` decimal(16,4) NOT NULL DEFAULT '0.0000' COMMENT '提现手续费（元）',
   `real_amount` decimal(16,4) NOT NULL DEFAULT '0.0000' COMMENT '实际到账金额（元）',

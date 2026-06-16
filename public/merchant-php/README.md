@@ -84,7 +84,7 @@ demo/merchant-php/
 
 下游商户服务器发起出款。鉴权与代收一致（`mch_id` + `time` + `sign`，签名规则完全相同）。
 
-> **重要：收款标的由 `bank_card_id` 指定** —— 须先在**商户门户「银行卡」**绑定收款账号（如 KBZPay 收款手机号）后取得其 ID。代付要求商户有可用余额且已授权代付通道。
+> **收款人信息随请求直传** —— 下游用户在下游平台提现，每单的收款人姓名/卡号/手机号都不同，由下游平台随 `/pay/transfer` 请求直传（`account_name` + `account_no`），无需预先绑卡。代付要求商户有可用余额且已授权代付通道。
 
 ### 代付下单 `POST /pay/transfer`
 
@@ -93,7 +93,13 @@ demo/merchant-php/
 | mch_id | 是 | 商户号 |
 | out_biz_no | 是 | 商户代付单号，同商户唯一（幂等键，重复提交不重复出款） |
 | money | 是 | 出款金额，单位**分**（字符串） |
-| bank_card_id | 是 | 收款账号 ID（商户门户「银行卡」绑定后获得） |
+| account_name | 二选一 | 收款人姓名（下游用户提现，随单直传） |
+| account_no | 二选一 | 收款账号/银行卡号（与 account_name 同时必填） |
+| bank_name | 否 | 开户银行名称 |
+| bank_code | 否 | 银行编码（部分通道必填） |
+| branch_name | 否 | 开户支行 |
+| account_phone | 否 | 收款人手机号（落库存档） |
+| bank_card_id | 二选一 | 预绑卡 ID（商户自有收款卡；与直传字段二选一） |
 | notify_url | 否 | 代付结果异步回调地址（留空用商户默认） |
 | time | 是 | Unix 时间戳（秒） |
 | client_ip | 否 | 用户 IP |

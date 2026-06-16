@@ -26,6 +26,7 @@ use plugin\saiadmin\basic\think\BaseModel;
  * @property string|null $bank_name 开户银行（申请时快照）
  * @property string|null $bank_code 银行编码（申请时快照）
  * @property string|null $branch_name 开户支行（申请时快照）
+ * @property string|null $account_phone 收款人手机号（申请时快照，API 直传代付）
  * @property string|null $notify_url 下游商户异步通知地址（API 代付）
  * @property string $amount 提现金额（元）
  * @property string $fee 提现手续费（元）

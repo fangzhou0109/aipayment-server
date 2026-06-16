@@ -184,8 +184,8 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
       <div class="card">
         <h2>测试代付（提现下单）</h2>
         <div class="alert alert-info" style="margin-bottom:14px">
-          代付收款标的由 <code>bank_card_id</code> 指定 —— 须先在<strong>商户门户「银行卡」</strong>绑定收款账号
-          （如 KBZPay 手机号）后取得其 ID。代付需商户有可用余额且已授权代付通道。
+          收款人信息<strong>随请求直传</strong>（下游用户提现，每单户名/卡号/手机号都不同）：填
+          <code>account_name</code> + <code>account_no</code> 即可，无需预先绑卡。代付需商户有可用余额且已授权代付通道。
         </div>
         <form id="form-transfer" class="form-grid">
           <div class="form-row">
@@ -194,9 +194,25 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
             <p class="form-hint">提交时自动转为分（money 字段）；实际到账 = 金额 − 手续费</p>
           </div>
           <div class="form-row">
-            <label for="transfer-bank-card-id">bank_card_id</label>
-            <input type="number" id="transfer-bank-card-id" name="bank_card_id" min="1" placeholder="商户门户绑定的收款账号 ID" required style="max-width:320px">
-            <p class="form-hint">商户门户「银行卡」列表中该卡的 ID</p>
+            <label for="transfer-account-name">收款人姓名 account_name</label>
+            <input type="text" id="transfer-account-name" name="account_name" placeholder="收款人真实姓名" required style="max-width:320px">
+          </div>
+          <div class="form-row">
+            <label for="transfer-account-no">收款账号 account_no</label>
+            <input type="text" id="transfer-account-no" name="account_no" placeholder="银行卡号 / 钱包账号" required style="max-width:320px">
+          </div>
+          <div class="form-row">
+            <label for="transfer-bank-name">开户银行 bank_name</label>
+            <input type="text" id="transfer-bank-name" name="bank_name" placeholder="选填，如 中国工商银行" style="max-width:320px">
+          </div>
+          <div class="form-row">
+            <label for="transfer-account-phone">收款人手机号 account_phone</label>
+            <input type="text" id="transfer-account-phone" name="account_phone" placeholder="选填" style="max-width:320px">
+          </div>
+          <div class="form-row">
+            <label for="transfer-bank-card-id">bank_card_id（可选）</label>
+            <input type="number" id="transfer-bank-card-id" name="bank_card_id" min="1" placeholder="预绑卡场景才填，留空走直传" style="max-width:320px">
+            <p class="form-hint">仅当用商户门户预绑的自有收款卡时填写；与上面直传字段二选一</p>
           </div>
           <div class="form-row">
             <label for="transfer-out-biz-no">商户代付单号 out_biz_no</label>
@@ -414,7 +430,13 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
                 <tr><td>mch_id</td><td>是</td><td>商户号</td></tr>
                 <tr><td>out_biz_no</td><td>是</td><td>商户代付单号，同商户唯一（幂等键）</td></tr>
                 <tr><td>money</td><td>是</td><td>出款金额，单位<strong>分</strong>（字符串）</td></tr>
-                <tr><td>bank_card_id</td><td>是</td><td>收款账号 ID（商户门户「银行卡」绑定后获得；如 KBZPay 手机号）</td></tr>
+                <tr><td>account_name</td><td>二选一</td><td>收款人姓名（下游用户提现，随单直传）</td></tr>
+                <tr><td>account_no</td><td>二选一</td><td>收款账号/银行卡号（与 account_name 同时必填）</td></tr>
+                <tr><td>bank_name</td><td>否</td><td>开户银行名称</td></tr>
+                <tr><td>bank_code</td><td>否</td><td>银行编码（部分通道必填）</td></tr>
+                <tr><td>branch_name</td><td>否</td><td>开户支行</td></tr>
+                <tr><td>account_phone</td><td>否</td><td>收款人手机号（落库存档）</td></tr>
+                <tr><td>bank_card_id</td><td>二选一</td><td>预绑卡 ID（商户自有收款卡；与直传字段二选一）</td></tr>
                 <tr><td>notify_url</td><td>否</td><td>代付结果异步回调地址（留空用商户默认）</td></tr>
                 <tr><td>time</td><td>是</td><td>Unix 时间戳（秒）</td></tr>
                 <tr><td>client_ip</td><td>否</td><td>用户 IP</td></tr>

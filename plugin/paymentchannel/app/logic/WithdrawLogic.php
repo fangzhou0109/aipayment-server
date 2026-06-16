@@ -165,13 +165,20 @@ class WithdrawLogic extends PaymentBaseLogic
      *
      * 与人工提现 {@see self::apply()} 复用同一套资金状态机与代付下发链路，差异：
      *  - 携带商户代付单号 out_biz_no（幂等键，同商户内唯一；重复请求返回既有单据状态，不重复出款）；
+     *  - 收款人信息随单直传（下游用户提现，每单户名/卡号/手机号都不同），不依赖预绑卡；
+     *    亦兼容预绑 bank_card_id（商户自有卡）。
      *  - 落库 source=API代付、notify_url（出款成功/失败异步回调下游）；
      *  - 按金额阈值（config transfer_api.auto_threshold）决定自动放款或转后台人工审核。
      *
      * @param array $merchant 商户上下文（id/mch_id/rate_transfer）
-     * @param array $params { out_biz_no, money(分), bank_card_id, notify_url? }
+     * @param array $params {
+     *     out_biz_no, money(分), notify_url?,
+     *     // 收款人二选一：① 直传 account_name + account_no（可带 bank_name/bank_code/branch_name/account_phone）
+     *     //            ② 预绑 bank_card_id（商户自有卡）
+     *     account_name?, account_no?, bank_name?, bank_code?, branch_name?, account_phone?, bank_card_id?
+     * }
      * @return array 代付单摘要（含 status/status_text，供网关回包下游）
-     * @throws PaymentException 参数非法 / 余额不足 / 银行卡非法
+     * @throws PaymentException 参数非法 / 余额不足 / 收款人信息缺失或银行卡非法
      */
     public function createByApi(array $merchant, array $params): array
     {
@@ -197,14 +204,9 @@ class WithdrawLogic extends PaymentBaseLogic
             return $this->buildApiResult($existing);
         }
 
-        // 收款银行卡校验（属本商户 + 启用）
-        $bankCard = $this->loadBankCard($bankCardId);
-        if ($bankCard === null || (int) $bankCard['merchant_id'] !== $merchantId) {
-            throw new PaymentException('收款银行卡非法');
-        }
-        if ((int) ($bankCard['status'] ?? BankCard::STATUS_NORMAL) !== BankCard::STATUS_NORMAL) {
-            throw new PaymentException('收款银行卡已停用');
-        }
+        // 收款人信息：优先请求直传（下游用户提现，每单收款人不同），
+        // 兑容预绑 bank_card_id（商户自有卡）。返回规整后的 bank_card_id 与收款人快照。
+        [$bankCardId, $payee] = $this->resolveApiPayee($merchantId, $bankCardId, $params);
 
         // 手续费：商户×通道费率链，回落 merchant.rate_transfer（与人工提现一致）
         $merchantGlobalRate = AmountHelper::format((string) ($merchant['rate_transfer'] ?? '0'));
@@ -220,7 +222,6 @@ class WithdrawLogic extends PaymentBaseLogic
             throw new PaymentException('代付金额不足以扣除手续费');
         }
         $withdrawNo = (new OrderNoGenerator())->withdraw();
-        $bankSnapshot = $this->buildBankCardSnapshot($bankCard);
 
         try {
             $withdrawId = $this->transaction(function () use (
@@ -233,7 +234,7 @@ class WithdrawLogic extends PaymentBaseLogic
                 $fee,
                 $realAmount,
                 $bankCardId,
-                $bankSnapshot
+                $payee
             ) {
                 // 1) 冻结可用余额（余额不足在此抛异常，整体回滚）
                 $this->ledger->freezeWithdraw($merchantId, $mchId, $withdrawNo, $amount);
@@ -244,13 +245,13 @@ class WithdrawLogic extends PaymentBaseLogic
                     'merchant_id'  => $merchantId,
                     'mch_id'       => $mchId,
                     'source'       => Withdraw::SOURCE_API_TRANSFER,
-                    'bank_card_id' => $bankCardId,
+                    'bank_card_id' => $bankCardId > 0 ? $bankCardId : null,
                     'notify_url'   => $notifyUrl,
                     'amount'       => $amount,
                     'fee'          => $fee,
                     'real_amount'  => $realAmount,
                     'status'       => Withdraw::STATUS_PENDING,
-                ], $bankSnapshot));
+                ], $payee));
             });
         } catch (PaymentException $e) {
             throw $e;
@@ -869,12 +870,65 @@ class WithdrawLogic extends PaymentBaseLogic
     protected function buildBankCardSnapshot(array $bankCard): array
     {
         return [
-            'account_name' => (string) ($bankCard['holder_name'] ?? ''),
-            'account_no'   => (string) ($bankCard['card_no'] ?? ''),
-            'bank_name'    => (string) ($bankCard['bank_name'] ?? ''),
-            'bank_code'    => (string) ($bankCard['bank_code'] ?? ''),
-            'branch_name'  => (string) ($bankCard['branch_name'] ?? ''),
+            'account_name'  => (string) ($bankCard['holder_name'] ?? ''),
+            'account_no'    => (string) ($bankCard['card_no'] ?? ''),
+            'bank_name'     => (string) ($bankCard['bank_name'] ?? ''),
+            'bank_code'     => (string) ($bankCard['bank_code'] ?? ''),
+            'branch_name'   => (string) ($bankCard['branch_name'] ?? ''),
+            'account_phone' => (string) ($bankCard['phone'] ?? ''),
         ];
+    }
+
+    /**
+     * 解析 API 代付收款人信息
+     *
+     * 两种来源（满足下游代付场景）：
+     *  1) 请求直传收款人信息——下游用户在下游平台提现，每单收款人/卡号/手机号都不同，
+     *     由下游平台转发到 /pay/transfer 时随单携带（account_name/account_no/bank_name/
+     *     bank_code/branch_name/account_phone），落库为本单快照；
+     *  2) 预绑 bank_card_id——商户在门户绑定的自有收款卡（兼容老用法）。
+     *
+     * 优先级：显式传了 bank_card_id 走预绑卡校验；否则按请求直传字段解析。
+     *
+     * @param int   $merchantId 商户ID
+     * @param int   $bankCardId 预绑银行卡ID（0 表示未指定）
+     * @param array $params     原始请求参数
+     * @return array{0:int,1:array{account_name:string,account_no:string,bank_name:string,bank_code:string,branch_name:string,account_phone:string}}
+     *               [规整后的 bank_card_id, 收款人快照]
+     * @throws PaymentException 银行卡非法/停用，或直传字段缺失
+     */
+    protected function resolveApiPayee(int $merchantId, int $bankCardId, array $params): array
+    {
+        // 方式一：预绑卡（商户自有卡，兼容历史用法）
+        if ($bankCardId > 0) {
+            $bankCard = $this->loadBankCard($bankCardId);
+            if ($bankCard === null || (int) $bankCard['merchant_id'] !== $merchantId) {
+                throw new PaymentException('收款银行卡非法');
+            }
+            if ((int) ($bankCard['status'] ?? BankCard::STATUS_NORMAL) !== BankCard::STATUS_NORMAL) {
+                throw new PaymentException('收款银行卡已停用');
+            }
+            return [$bankCardId, $this->buildBankCardSnapshot($bankCard)];
+        }
+
+        // 方式二：请求直传收款人信息（下游用户提现，每单不同）
+        $accountName = trim((string) ($params['account_name'] ?? ''));
+        $accountNo   = trim((string) ($params['account_no'] ?? ''));
+        if ($accountName === '') {
+            throw new PaymentException('缺少收款人姓名 account_name');
+        }
+        if ($accountNo === '') {
+            throw new PaymentException('缺少收款账号 account_no');
+        }
+
+        return [0, [
+            'account_name'  => $accountName,
+            'account_no'    => $accountNo,
+            'bank_name'     => trim((string) ($params['bank_name'] ?? '')),
+            'bank_code'     => trim((string) ($params['bank_code'] ?? '')),
+            'branch_name'   => trim((string) ($params['branch_name'] ?? '')),
+            'account_phone' => trim((string) ($params['account_phone'] ?? '')),
+        ]];
     }
 
     /**
