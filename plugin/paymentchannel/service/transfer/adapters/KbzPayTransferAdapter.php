@@ -50,7 +50,7 @@ class KbzPayTransferAdapter extends AbstractTransferAdapter
     private const SUCCESS_CODE = '0';
 
     /** 代付「成功」状态集合（回调 / 查单，兼容多种写法） */
-    private const SUCCESS_STATES = ['PAY_SUCCESS', 'SUCCESS', 'success', '1'];
+    private const SUCCESS_STATES = ['TRADE_SUCCESS', 'PAY_SUCCESS', 'SUCCESS', 'success', '1'];
 
     /** 代付「失败」状态集合 */
     private const FAILED_STATES = ['PAY_FAIL', 'FAIL', 'fail', 'FAILED', 'failed', '2', '-1'];
