@@ -50,6 +50,10 @@ Route::group('/pay', function () {
     Route::post('/submitOrder', [\plugin\paymentchannel\app\controller\gateway\PayGatewayController::class, 'submitOrder']);
     // 商户查单：POST /pay/query —— 验签后按商户订单号查询（仅能查本商户订单）
     Route::post('/query', [\plugin\paymentchannel\app\controller\gateway\PayGatewayController::class, 'query']);
+    // 商户代付下单：POST /pay/transfer —— 验签后建代付单（out_biz_no 幂等），按阈值自动放款或转人工
+    Route::post('/transfer', [\plugin\paymentchannel\app\controller\gateway\TransferGatewayController::class, 'transfer']);
+    // 商户代付查单：POST /pay/transferQuery —— 验签后按商户代付单号查询（仅能查本商户代付单）
+    Route::post('/transferQuery', [\plugin\paymentchannel\app\controller\gateway\TransferGatewayController::class, 'transferQuery']);
 })->middleware([
     SignVerify::class,
     IpWhitelist::class,

@@ -67,6 +67,7 @@ class SignVerify implements MiddlewareInterface
             'mch_id'              => (string) $merchant->mch_id,
             'name'                => (string) $merchant->name,
             'rate'                => (string) $merchant->rate,
+            'rate_transfer'       => (string) $merchant->rate_transfer,
             'single_min'          => (string) $merchant->single_min,
             'single_max'          => (string) $merchant->single_max,
             'status'              => (int) $merchant->status,

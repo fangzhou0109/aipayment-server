@@ -258,14 +258,17 @@ DROP TABLE IF EXISTS `sa_pay_withdraw`;
 CREATE TABLE `sa_pay_withdraw`  (
   `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
   `withdraw_no` varchar(32) NOT NULL COMMENT '平台提现单号（唯一）',
+  `out_biz_no` varchar(64) NULL DEFAULT NULL COMMENT '商户代付单号（API 幂等键）',
   `merchant_id` int(11) UNSIGNED NOT NULL COMMENT '商户ID',
   `mch_id` varchar(32) NOT NULL COMMENT '商户号（冗余）',
+  `source` smallint(6) NOT NULL DEFAULT 1 COMMENT '单据来源 (1商户提现 2API代付)',
   `bank_card_id` int(11) UNSIGNED NULL DEFAULT NULL COMMENT '收款银行卡ID',
   `account_name` varchar(100) NULL DEFAULT NULL COMMENT '收款人姓名（申请时快照）',
   `account_no` varchar(64) NULL DEFAULT NULL COMMENT '收款银行卡号（申请时快照）',
   `bank_name` varchar(100) NULL DEFAULT NULL COMMENT '开户银行（申请时快照）',
   `bank_code` varchar(32) NULL DEFAULT NULL COMMENT '银行编码（申请时快照）',
   `branch_name` varchar(255) NULL DEFAULT NULL COMMENT '开户支行（申请时快照）',
+  `notify_url` varchar(500) NULL DEFAULT NULL COMMENT '下游商户异步通知地址（API 代付）',
   `amount` decimal(16, 4) NOT NULL DEFAULT 0.0000 COMMENT '提现金额（元）',
   `fee` decimal(16, 4) NOT NULL DEFAULT 0.0000 COMMENT '提现手续费（元）',
   `real_amount` decimal(16, 4) NOT NULL DEFAULT 0.0000 COMMENT '实际到账金额（元）',
@@ -282,6 +285,7 @@ CREATE TABLE `sa_pay_withdraw`  (
   `delete_time` datetime(0) NULL DEFAULT NULL COMMENT '删除时间',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `uk_withdraw_no`(`withdraw_no`) USING BTREE,
+  UNIQUE INDEX `uk_merchant_out_biz_no`(`merchant_id`, `out_biz_no`) USING BTREE,
   INDEX `idx_merchant_id`(`merchant_id`) USING BTREE,
   INDEX `idx_status`(`status`) USING BTREE
 ) ENGINE = InnoDB COMMENT = '商户提现表' ROW_FORMAT = Dynamic;

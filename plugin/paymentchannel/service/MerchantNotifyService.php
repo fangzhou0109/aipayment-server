@@ -40,6 +40,9 @@ class MerchantNotifyService
     /** 通知类型：代收 */
     public const BIZ_PAY = 1;
 
+    /** 通知类型：代付（API 出款结果回调下游） */
+    public const BIZ_TRANSFER = 2;
+
     /** 最大重试次数（不含首发）；达上限仍失败转人工 */
     public const MAX_RETRY = 6;
 
@@ -114,6 +117,62 @@ class MerchantNotifyService
 
         // 4) 首次投递
         return $this->attempt($logId, $notifyUrl, $body, (string) ($order['order_no'] ?? ''), 0);
+    }
+
+    /**
+     * 代付（API 出款）结果首次投递通知下游商户
+     *
+     * 与代收 {@see self::dispatch()} 同机制（落库已签名通知体、失败退避重试、原样重放），
+     * 通知体字段面向代付场景：商户代付单号 / 平台代付单号 / 金额(分) / 状态。
+     *
+     * @param array $withdraw 提现(代付)单（须含 withdraw_no/out_biz_no/mch_id/merchant_id/real_amount/notify_url）
+     * @param bool $success true=出款成功，false=出款失败
+     * @param string $reason 失败原因（success=false 时附带）
+     * @return bool 是否首发即成功（无 notify_url 视为无需通知，返回 true）
+     */
+    public function dispatchTransfer(array $withdraw, bool $success, string $reason = ''): bool
+    {
+        $notifyUrl = trim((string) ($withdraw['notify_url'] ?? ''));
+        $merchantId = (int) ($withdraw['merchant_id'] ?? 0);
+        // 无通知地址：无需通知（人工提现单或商户未传 notify_url）
+        if ($notifyUrl === '') {
+            return true;
+        }
+
+        // 1) 取商户签名凭证（secret_key 拼串、rsa_private_key 供 RSA 签名）
+        $secret = $this->loadMerchantSecret($merchantId);
+        $secretKey = (string) ($secret['secret_key'] ?? '');
+        $rsaPrivateKey = (string) ($secret['rsa_private_key'] ?? '');
+
+        // 2) 组装并签名通知体（money 换算为分；status=success|fail）
+        $signType = SignService::SIGN_TYPE_MD5;
+        $body = [
+            'out_biz_no'  => (string) ($withdraw['out_biz_no'] ?? ''),
+            'transfer_no' => (string) ($withdraw['withdraw_no'] ?? ''),
+            'money'       => AmountHelper::format(AmountHelper::mul((string) ($withdraw['real_amount'] ?? '0'), '100'), 0),
+            'mch_id'      => (string) ($withdraw['mch_id'] ?? ''),
+            'status'      => $success ? 'success' : 'fail',
+            'time'        => (string) $this->now(),
+        ];
+        if (!$success && $reason !== '') {
+            $body['reason'] = $reason;
+        }
+        $body['sign'] = SignService::makeSign($body, $secretKey, $signType, $rsaPrivateKey !== '' ? $rsaPrivateKey : null);
+        $body['sign_type'] = $signType;
+
+        // 3) 落库通知日志（待通知），存已签名通知体供重试原样重发
+        $logId = $this->createLog([
+            'order_no'     => (string) ($withdraw['withdraw_no'] ?? ''),
+            'merchant_id'  => $merchantId,
+            'biz_type'     => self::BIZ_TRANSFER,
+            'notify_url'   => $notifyUrl,
+            'request_body' => $this->encode($body),
+            'retry_num'    => 0,
+            'status'       => NotifyLog::STATUS_PENDING,
+        ]);
+
+        // 4) 首次投递
+        return $this->attempt($logId, $notifyUrl, $body, (string) ($withdraw['withdraw_no'] ?? ''), 0);
     }
 
     /**

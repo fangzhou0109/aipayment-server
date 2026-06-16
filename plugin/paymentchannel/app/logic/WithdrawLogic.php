@@ -17,6 +17,7 @@ use plugin\paymentchannel\app\model\Withdraw;
 use plugin\paymentchannel\service\AmountHelper;
 use plugin\paymentchannel\service\RateResolver;
 use plugin\paymentchannel\service\LedgerService;
+use plugin\paymentchannel\service\MerchantNotifyService;
 use plugin\paymentchannel\service\OrderNoGenerator;
 use plugin\paymentchannel\service\transfer\dto\CreateTransferRequest;
 use plugin\paymentchannel\service\transfer\TransferAdapterFactory;
@@ -156,6 +157,144 @@ class WithdrawLogic extends PaymentBaseLogic
             // 余额不足等资金异常统一转业务异常
             throw new PaymentException($e->getMessage());
         }
+    }
+
+    /**
+     * 商户服务端 API 代付下单（供 /pay/transfer 网关调用，验签后进入）
+     *
+     * 与人工提现 {@see self::apply()} 复用同一套资金状态机与代付下发链路，差异：
+     *  - 携带商户代付单号 out_biz_no（幂等键，同商户内唯一；重复请求返回既有单据状态，不重复出款）；
+     *  - 落库 source=API代付、notify_url（出款成功/失败异步回调下游）；
+     *  - 按金额阈值（config transfer_api.auto_threshold）决定自动放款或转后台人工审核。
+     *
+     * @param array $merchant 商户上下文（id/mch_id/rate_transfer）
+     * @param array $params { out_biz_no, money(分), bank_card_id, notify_url? }
+     * @return array 代付单摘要（含 status/status_text，供网关回包下游）
+     * @throws PaymentException 参数非法 / 余额不足 / 银行卡非法
+     */
+    public function createByApi(array $merchant, array $params): array
+    {
+        $merchantId = (int) ($merchant['id'] ?? 0);
+        $mchId = (string) ($merchant['mch_id'] ?? '');
+        $outBizNo = trim((string) ($params['out_biz_no'] ?? ''));
+        $moneyCents = trim((string) ($params['money'] ?? ''));
+        $bankCardId = (int) ($params['bank_card_id'] ?? 0);
+        $notifyUrl = trim((string) ($params['notify_url'] ?? ''));
+
+        if ($outBizNo === '') {
+            throw new PaymentException('缺少商户代付单号 out_biz_no');
+        }
+        // 金额与代收下单对齐：money 单位为分，须正整数
+        if ($moneyCents === '' || !ctype_digit($moneyCents) || $moneyCents === '0') {
+            throw new PaymentException('代付金额 money 非法（应为正整数，单位分）');
+        }
+        $amount = AmountHelper::div($moneyCents, '100');
+
+        // 幂等：同商户 + out_biz_no 已存在 → 返回既有单据状态，不重复出款
+        $existing = $this->loadWithdrawByOutBizNo($merchantId, $outBizNo);
+        if ($existing !== null) {
+            return $this->buildApiResult($existing);
+        }
+
+        // 收款银行卡校验（属本商户 + 启用）
+        $bankCard = $this->loadBankCard($bankCardId);
+        if ($bankCard === null || (int) $bankCard['merchant_id'] !== $merchantId) {
+            throw new PaymentException('收款银行卡非法');
+        }
+        if ((int) ($bankCard['status'] ?? BankCard::STATUS_NORMAL) !== BankCard::STATUS_NORMAL) {
+            throw new PaymentException('收款银行卡已停用');
+        }
+
+        // 手续费：商户×通道费率链，回落 merchant.rate_transfer（与人工提现一致）
+        $merchantGlobalRate = AmountHelper::format((string) ($merchant['rate_transfer'] ?? '0'));
+        $defaultChannelId = $this->resolveDefaultTransferChannelId($merchantId);
+        $rate = $this->getRateResolver()->resolveTransferRateForApply(
+            $merchantId,
+            $defaultChannelId,
+            $merchantGlobalRate
+        );
+        $fee = AmountHelper::fee($amount, $rate);
+        $realAmount = AmountHelper::sub($amount, $fee);
+        if (!AmountHelper::gtZero($realAmount)) {
+            throw new PaymentException('代付金额不足以扣除手续费');
+        }
+        $withdrawNo = (new OrderNoGenerator())->withdraw();
+        $bankSnapshot = $this->buildBankCardSnapshot($bankCard);
+
+        try {
+            $withdrawId = $this->transaction(function () use (
+                $merchantId,
+                $mchId,
+                $withdrawNo,
+                $outBizNo,
+                $notifyUrl,
+                $amount,
+                $fee,
+                $realAmount,
+                $bankCardId,
+                $bankSnapshot
+            ) {
+                // 1) 冻结可用余额（余额不足在此抛异常，整体回滚）
+                $this->ledger->freezeWithdraw($merchantId, $mchId, $withdrawNo, $amount);
+                // 2) 建代付单（待审核 + 银行卡快照 + API 来源 + 下游回调地址）
+                return $this->createWithdraw(array_merge([
+                    'withdraw_no'  => $withdrawNo,
+                    'out_biz_no'   => $outBizNo,
+                    'merchant_id'  => $merchantId,
+                    'mch_id'       => $mchId,
+                    'source'       => Withdraw::SOURCE_API_TRANSFER,
+                    'bank_card_id' => $bankCardId,
+                    'notify_url'   => $notifyUrl,
+                    'amount'       => $amount,
+                    'fee'          => $fee,
+                    'real_amount'  => $realAmount,
+                    'status'       => Withdraw::STATUS_PENDING,
+                ], $bankSnapshot));
+            });
+        } catch (PaymentException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            // 余额不足等资金异常统一转业务异常
+            throw new PaymentException($e->getMessage());
+        }
+
+        // 阈值判定：<=阈值自动放款（置审核通过→立即下发）；>阈值留「待审核」转后台人工
+        if ($this->shouldAutoDisburse($amount)) {
+            $this->updateWithdraw($withdrawId, ['status' => Withdraw::STATUS_APPROVED]);
+            $withdraw = $this->loadWithdraw($withdrawId);
+            if ($withdraw !== null) {
+                // 下发受理失败会同步走 confirmFailed（退款+失败回调），成功则保持代付中等回调
+                $this->disburse($withdraw, 0);
+            }
+        }
+
+        $final = $this->loadWithdraw($withdrawId);
+        return $this->buildApiResult($final ?? []);
+    }
+
+    /**
+     * 商户服务端 API 代付查单（供 /pay/transferQuery 网关调用）
+     *
+     * 仅能查询本商户名下代付单（merchant_id + out_biz_no 强约束）。
+     *
+     * @param array $merchant 商户上下文（id）
+     * @param array $params { out_biz_no }
+     * @return array 代付单摘要（含 status/status_text）
+     * @throws PaymentException 参数非法 / 单不存在
+     */
+    public function queryByApi(array $merchant, array $params): array
+    {
+        $merchantId = (int) ($merchant['id'] ?? 0);
+        $outBizNo = trim((string) ($params['out_biz_no'] ?? ''));
+        if ($outBizNo === '') {
+            throw new PaymentException('缺少商户代付单号 out_biz_no');
+        }
+
+        $withdraw = $this->loadWithdrawByOutBizNo($merchantId, $outBizNo);
+        if ($withdraw === null) {
+            throw new PaymentException('代付单不存在');
+        }
+        return $this->buildApiResult($withdraw);
     }
 
     /**
@@ -395,6 +534,8 @@ class WithdrawLogic extends PaymentBaseLogic
                 'status'      => Withdraw::STATUS_SUCCESS,
             ]);
         });
+        // API 代付：出款成功异步回调下游商户（人工提现单 source!=2 时跳过）
+        $this->dispatchTransferNotify($withdraw, true);
         return true;
     }
 
@@ -430,6 +571,8 @@ class WithdrawLogic extends PaymentBaseLogic
                 'audit_remark' => $reason !== '' ? $reason : (string) ($withdraw['audit_remark'] ?? ''),
             ]);
         });
+        // API 代付：出款失败异步回调下游商户（人工提现单 source!=2 时跳过）
+        $this->dispatchTransferNotify($withdraw, false, $reason);
         return true;
     }
 
@@ -733,5 +876,106 @@ class WithdrawLogic extends PaymentBaseLogic
     protected function updateWithdraw(int $id, array $patch): void
     {
         Withdraw::where('id', $id)->update($patch);
+    }
+
+    /**
+     * 按商户 + 商户代付单号加载代付单（API 代付幂等键 / 查单）
+     *
+     * @param int $merchantId 商户ID
+     * @param string $outBizNo 商户代付单号
+     * @return array|null
+     */
+    protected function loadWithdrawByOutBizNo(int $merchantId, string $outBizNo): ?array
+    {
+        if ($merchantId <= 0 || $outBizNo === '') {
+            return null;
+        }
+        $w = Withdraw::where('merchant_id', $merchantId)
+            ->where('out_biz_no', $outBizNo)
+            ->find();
+        return $w ? $w->toArray() : null;
+    }
+
+    /**
+     * 是否自动放款（API 代付阈值判定）
+     *
+     * 读配置 transfer_api.auto_threshold（元）：<=0 表示全部转后台人工审核；
+     * 否则代付金额 <= 阈值自动放款，> 阈值留待人工。
+     *
+     * @param string $amount 代付金额（元）
+     * @return bool true=自动放款
+     */
+    protected function shouldAutoDisburse(string $amount): bool
+    {
+        $threshold = AmountHelper::format((string) config('plugin.paymentchannel.app.transfer_api.auto_threshold', '0'));
+        if (!AmountHelper::gtZero($threshold)) {
+            return false;
+        }
+        // amount <= threshold → 自动放款
+        return AmountHelper::compare($amount, $threshold) <= 0;
+    }
+
+    /**
+     * 组装 API 代付单回包摘要（供 /pay/transfer、/pay/transferQuery 回下游）
+     *
+     * @param array $withdraw 代付单
+     * @return array{withdraw_no:string,out_biz_no:string,amount:string,fee:string,real_amount:string,status:int,status_text:string,transfer_no:string}
+     */
+    protected function buildApiResult(array $withdraw): array
+    {
+        $status = (int) ($withdraw['status'] ?? Withdraw::STATUS_PENDING);
+        return [
+            'withdraw_no' => (string) ($withdraw['withdraw_no'] ?? ''),
+            'out_biz_no'  => (string) ($withdraw['out_biz_no'] ?? ''),
+            'amount'      => AmountHelper::format((string) ($withdraw['amount'] ?? '0')),
+            'fee'         => AmountHelper::format((string) ($withdraw['fee'] ?? '0')),
+            'real_amount' => AmountHelper::format((string) ($withdraw['real_amount'] ?? '0')),
+            'status'      => $status,
+            'status_text' => $this->apiStatusText($status),
+            'transfer_no' => (string) ($withdraw['transfer_no'] ?? ''),
+        ];
+    }
+
+    /**
+     * 代付单状态码 → 下游可读文案
+     *
+     * @param int $status 状态码
+     * @return string
+     */
+    protected function apiStatusText(int $status): string
+    {
+        return match ($status) {
+            Withdraw::STATUS_PENDING    => 'pending',   // 待审核
+            Withdraw::STATUS_APPROVED   => 'approved',  // 审核通过待下发
+            Withdraw::STATUS_PAYING     => 'paying',    // 代付中
+            Withdraw::STATUS_SUCCESS    => 'success',   // 成功
+            Withdraw::STATUS_REJECTED   => 'rejected',  // 审核拒绝
+            Withdraw::STATUS_PAY_FAILED => 'fail',      // 代付失败
+            default                     => 'unknown',
+        };
+    }
+
+    /**
+     * API 代付结果异步回调下游（仅 source=API代付 触发；人工提现单跳过）
+     *
+     * 接缝方法：默认实例化 {@see MerchantNotifyService} 投递；单测可重写为假实现。
+     *
+     * @param array $withdraw 代付单
+     * @param bool $success 是否成功
+     * @param string $reason 失败原因
+     */
+    protected function dispatchTransferNotify(array $withdraw, bool $success, string $reason = ''): void
+    {
+        if ((int) ($withdraw['source'] ?? Withdraw::SOURCE_WITHDRAW) !== Withdraw::SOURCE_API_TRANSFER) {
+            return;
+        }
+        if (trim((string) ($withdraw['notify_url'] ?? '')) === '') {
+            return;
+        }
+        try {
+            (new MerchantNotifyService())->dispatchTransfer($withdraw, $success, $reason);
+        } catch (Throwable $e) {
+            // 回调失败不影响出款主流程（已落 NotifyLog，后续可重试/人工重发）
+        }
     }
 }

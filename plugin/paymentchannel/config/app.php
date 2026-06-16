@@ -28,6 +28,12 @@ return [
     // 仅当商户无代付授权绑定时回退本配置（须为 channel_biz IN 2,3 且已填 transfer_adapter）；留空且无绑定时报未配置。
     // 回调地址：{notify_domain}/pay/transferNotify/{通道编码}。
     'transfer_channel_code' => 'https://api.fangzhou.uk',
+    // 商户服务端「程序化代付 API」(/pay/transfer)：
+    //  - auto_threshold：自动放款金额阈值（元）。代付金额 <= 阈值自动调上游出款；> 阈值落「待审核」转后台人工下发。
+    //    默认 '0'（保守）：所有 API 代付均需人工审核；按业务信任度上调（如 '50000' 表示 5万 MMK 以内自动放款）。
+    'transfer_api' => [
+        'auto_threshold' => '0',
+    ],
     // 商户网关限流(Phase 7.2 OWASP 防超频/暴力)：按「商户号+路径」固定窗口计数。
     // enable=false 关闭；max<=0 视为不限流；Redis 异常失败放行不阻断支付。
     // 默认 60 次/60 秒/每商户每端点（足够正常下单，挡住异常超频）。
