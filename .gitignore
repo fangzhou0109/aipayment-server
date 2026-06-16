@@ -1,0 +1,27 @@
+# ===== 依赖 =====
+/vendor/
+__MACOSX/
+
+# ===== 环境与密钥（禁止提交）=====
+.env
+.env.*
+!.env.example
+
+# ===== 运行时产物 =====
+/runtime/
+*.log
+*.pid
+
+# ===== 测试缓存 =====
+.phpunit.cache/
+.phpunit.result.cache
+
+# ===== IDE / 编辑器 =====
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
