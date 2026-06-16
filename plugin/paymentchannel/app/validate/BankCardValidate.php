@@ -16,7 +16,7 @@ use plugin\saiadmin\basic\BaseValidate;
  * 规则：
  *  - 商户ID必填且为正整数（归属约束，绑卡必须明确归属商户）；
  *  - 持卡人姓名必填；
- *  - 银行卡号必填且通过 Luhn 校验（防录入错误卡号导致代付失败）；
+ *  - 银行卡号必填；账号 ≥12 位按银行卡走 Luhn 校验，6~11 位视为钱包/手机号账号（如 KBZPay）；
  *  - status 取 1/2。
  */
 class BankCardValidate extends BaseValidate
@@ -59,14 +59,30 @@ class BankCardValidate extends BaseValidate
     ];
 
     /**
-     * 自定义规则：银行卡号 Luhn 校验
+     * 自定义规则：收款账号校验（兼容银行卡号与钱包/手机号账号）
      *
-     * @param mixed $value 待校验卡号
+     * 本平台代付收款标的有两类：
+     *  - 银行卡：12~19 位数字，按 Luhn 校验防录错；
+     *  - 钱包/手机号账号（如缅甸 KBZPay，09 开头约 9~11 位）：非银行卡，Luhn 不适用。
+     *
+     * 故按长度区分：≥12 位按银行卡走 Luhn；6~11 位视为钱包/手机号账号，仅校验纯数字与长度。
+     *
+     * @param mixed $value 待校验收款账号
      * @return bool|string true 通过，字符串为错误信息
      */
     protected function checkCardNo($value): bool|string
     {
-        return self::luhnValid((string) $value) ? true : '银行卡号校验失败（请检查卡号是否正确）';
+        // 剔除空格等非数字字符后判断（与 Luhn 校验口径一致）
+        $digits = preg_replace('/\D/', '', (string) $value);
+        $len = strlen($digits);
+        if ($len < 6 || $len > 19) {
+            return '收款账号格式不正确（应为 6~19 位数字）';
+        }
+        // 12 位及以上按银行卡处理，需通过 Luhn 校验；更短的视为钱包/手机号账号（如 KBZPay），跳过 Luhn
+        if ($len >= 12 && !self::luhnValid($digits)) {
+            return '银行卡号校验失败（请检查卡号是否正确）';
+        }
+        return true;
     }
 
     /**
