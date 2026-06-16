@@ -1,6 +1,6 @@
 # SaiPayment 商户 PHP 对接 Demo
 
-面向 PHP 技术栈商户的**可运行**代收对接示例，含 Web 控制台、签名库与网关直连测试。签名规则与平台 `SignService` / 历史 GpayDome **字节级一致**。
+面向 PHP 技术栈商户的**可运行**代收 + 代付（提现）对接示例，含 Web 控制台、签名库与网关直连测试。签名规则与平台 `SignService` / 历史 GpayDome **字节级一致**。
 
 ## 目录结构
 
@@ -11,12 +11,15 @@ demo/merchant-php/
 ├── assets/
 │   ├── console.css
 │   └── console.js
-├── submit_order.php     # 下单 API → POST {gateway_base}/submitOrder
-├── query_order.php      # 查单 API → POST {gateway_base}/query
+├── submit_order.php     # 代收下单 API → POST {gateway_base}/submitOrder
+├── query_order.php      # 代收查单 API → POST {gateway_base}/query
+├── submit_transfer.php  # 代付下单 API → POST {gateway_base}/transfer
+├── query_transfer.php   # 代付查单 API → POST {gateway_base}/transferQuery
 ├── health.php           # 网关健康检查 + 配置摘要
 ├── build_sign.php       # 生成 MD5 待签串与 curl 示例
-├── notify_logs.php      # 读取 notify 演示日志
-├── notify_url.php       # 异步通知接收（须回 SUCCESS）
+├── notify_logs.php      # 读取 notify 演示日志（?type=transfer 读代付日志）
+├── notify_url.php       # 代收异步通知接收（须回 SUCCESS）
+├── transfer_notify_url.php # 代付异步通知接收（须回 SUCCESS）
 ├── return_url.php       # 同步跳转页
 ├── lib/
 │   ├── PaySign.php      # 签名/验签（建议拷贝到生产代码）
@@ -40,9 +43,10 @@ demo/merchant-php/
 | 概览 | 配置脱敏展示、网关 `/health` 连通性探测 |
 | 测试下单 | 表单 POST `submit_order.php`，展示请求/响应与 pay_url |
 | 测试查单 | POST `query_order.php`，支持记住最近下单单号 |
+| 测试代付 | 代付下单 POST `submit_transfer.php` + 代付查单 POST `query_transfer.php` |
 | 签名工具 | POST `build_sign.php`，输出待签串与 curl |
-| 回调日志 | GET `notify_logs.php`，解析 `logs/notify.log` |
-| 对接文档 | 参数与签名规则摘要 |
+| 回调日志 | GET `notify_logs.php`，代收/代付可切换 |
+| 对接文档 | 代收 + 代付参数与签名规则摘要 |
 
 ## 与门户「接口测试」的区别
 
@@ -75,6 +79,64 @@ demo/merchant-php/
 | 7 | 其他 |
 
 以商户门户「代收通道」中已开通的 `pay_type` 为准。
+
+## 代付（提现）对接
+
+下游商户服务器发起出款。鉴权与代收一致（`mch_id` + `time` + `sign`，签名规则完全相同）。
+
+> **重要：收款标的由 `bank_card_id` 指定** —— 须先在**商户门户「银行卡」**绑定收款账号（如 KBZPay 收款手机号）后取得其 ID。代付要求商户有可用余额且已授权代付通道。
+
+### 代付下单 `POST /pay/transfer`
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| mch_id | 是 | 商户号 |
+| out_biz_no | 是 | 商户代付单号，同商户唯一（幂等键，重复提交不重复出款） |
+| money | 是 | 出款金额，单位**分**（字符串） |
+| bank_card_id | 是 | 收款账号 ID（商户门户「银行卡」绑定后获得） |
+| notify_url | 否 | 代付结果异步回调地址（留空用商户默认） |
+| time | 是 | Unix 时间戳（秒） |
+| client_ip | 否 | 用户 IP |
+| sign / sign_type | 是 | 签名（规则同代收） |
+
+成功返回 `code=200`，`data` 含 `withdraw_no`（平台代付单号）、`amount`/`fee`/`real_amount`、`status` 与 `status_text`。手续费由平台按通道计算，`real_amount` 为实际到账。
+
+### 代付查单 `POST /pay/transferQuery`
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| mch_id | 是 | 商户号 |
+| out_biz_no | 是 | 商户代付单号 |
+| time | 是 | Unix 时间戳 |
+| client_ip | 否 | 客户端 IP |
+| sign / sign_type | 是 | 签名 |
+
+### 代付异步通知（平台 → `transfer_notify_url`）
+
+| 参数 | 说明 |
+|------|------|
+| out_biz_no | 商户代付单号 |
+| transfer_no | 平台代付单号 |
+| money | 金额（分） |
+| mch_id | 商户号 |
+| status | `success`=出款成功 / `fail`=出款失败 |
+| reason | 失败原因（status=fail 时可能附带） |
+| time / sign / sign_type | 时间与签名 |
+
+验签通过后须响应纯文本 `SUCCESS`，否则平台重试。处理须**幂等**；`status=fail` 时应把出款金额退回给提现用户。
+
+### 代付状态码 status_text
+
+| 值 | 含义 | 终态 |
+|----|------|------|
+| pending | 待审核（金额超阈值转人工） | 否 |
+| approved | 审核通过待下发 | 否 |
+| paying | 代付中（已提交上游，等回调） | 否 |
+| success | 出款成功 | 是 |
+| fail | 出款失败（已退款解冻） | 是 |
+| rejected | 审核拒绝（已退款解冻） | 是 |
+
+下单后多为 `pending` 或 `paying`，最终结果以异步通知/查单的终态为准。
 
 ## 安全提示
 

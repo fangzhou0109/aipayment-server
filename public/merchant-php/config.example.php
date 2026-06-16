@@ -28,6 +28,10 @@ return [
     'notify_url' => 'https://your-merchant-domain.com/demo/merchant-php/notify_url.php',
     'return_url' => 'https://your-merchant-domain.com/demo/merchant-php/return_url.php',
 
+    // 代付（提现）异步回调：平台出款成功/失败后通知此地址（须公网可访问）。
+    // 也可在每次 /pay/transfer 请求中用 notify_url 参数覆盖。
+    'transfer_notify_url' => 'https://your-merchant-domain.com/demo/merchant-php/transfer_notify_url.php',
+
     // 默认支付类型 pay_type：1支付宝PC 2支付宝H5 3微信PC 4微信H5 5银联快捷 6银联扫码 7其他
     'default_pay_type' => 3,
 ];

@@ -5,6 +5,7 @@
   'use strict';
 
   var LS_KEY_ORDER = 'saipayment_demo_last_order_id';
+  var LS_KEY_TRANSFER = 'saipayment_demo_last_transfer_no';
   var configOk = window.DEMO_CONFIG && window.DEMO_CONFIG.configOk;
 
   function $(sel, root) {
@@ -62,6 +63,25 @@
     if (!id) return;
     try {
       localStorage.setItem(LS_KEY_ORDER, id);
+    } catch (e) { /* ignore */ }
+  }
+
+  function genTransferNo() {
+    return 'DEMOT' + genOrderId().replace(/^DEMO/, '');
+  }
+
+  function getLastTransferNo() {
+    try {
+      return localStorage.getItem(LS_KEY_TRANSFER) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
+  function saveLastTransferNo(id) {
+    if (!id) return;
+    try {
+      localStorage.setItem(LS_KEY_TRANSFER, id);
     } catch (e) { /* ignore */ }
   }
 
@@ -399,6 +419,74 @@
     });
   }
 
+  function setupTransferForm() {
+    var form = $('#form-transfer');
+    var result = $('#transfer-result');
+    if (!form) return;
+
+    var bizInput = $('#transfer-out-biz-no');
+    var genBtn = $('#btn-gen-out-biz-no');
+
+    if (genBtn) {
+      genBtn.addEventListener('click', function () {
+        if (bizInput) bizInput.value = genTransferNo();
+      });
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!configOk) return requireConfigAlert();
+
+      var fd = new FormData(form);
+      var btn = $('#btn-transfer');
+      if (btn) btn.disabled = true;
+      if (result) result.innerHTML = '<p class="loading-inline">代付提交中…</p>';
+
+      fetchJson('submit_transfer.php', { method: 'POST', body: fd }).then(function (res) {
+        if (btn) btn.disabled = false;
+        var body = res.body;
+        var ok = body.ok === true;
+        if (ok && body.request && body.request.out_biz_no) {
+          saveLastTransferNo(body.request.out_biz_no);
+          var q = $('#transfer-query-out-biz-no');
+          if (q && !q.value) q.value = body.request.out_biz_no;
+        }
+        renderResult(result, body, ok);
+      });
+    });
+  }
+
+  function setupTransferQueryForm() {
+    var form = $('#form-transfer-query');
+    var result = $('#transfer-query-result');
+    if (!form) return;
+
+    var bizInput = $('#transfer-query-out-biz-no');
+    var fillBtn = $('#btn-fill-last-transfer');
+    if (fillBtn) {
+      var last = getLastTransferNo();
+      if (!last) fillBtn.disabled = true;
+      fillBtn.addEventListener('click', function () {
+        if (bizInput) bizInput.value = getLastTransferNo();
+      });
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!configOk) return requireConfigAlert();
+
+      var fd = new FormData(form);
+      var btn = $('#btn-transfer-query');
+      if (btn) btn.disabled = true;
+      if (result) result.innerHTML = '<p class="loading-inline">查询中…</p>';
+
+      fetchJson('query_transfer.php', { method: 'POST', body: fd }).then(function (res) {
+        if (btn) btn.disabled = false;
+        renderResult(result, res.body, res.body.ok === true);
+      });
+    });
+  }
+
   function loadNotifyLogs() {
     var wrap = $('#notify-table-wrap');
     if (!wrap) return;
@@ -406,7 +494,8 @@
     wrap.innerHTML = '<p class="loading-inline">加载中…</p>';
 
     var filter = ($('#notify-filter') && $('#notify-filter').value) || '';
-    var url = 'notify_logs.php?limit=50';
+    var type = ($('#notify-type') && $('#notify-type').value) || '';
+    var url = 'notify_logs.php?limit=50' + (type ? '&type=' + encodeURIComponent(type) : '');
 
     fetchJson(url).then(function (res) {
       var items = (res.body.items || []).filter(function (row) {
@@ -483,7 +572,9 @@
   function setupNotifyPanel() {
     var refresh = $('#btn-refresh-notify');
     var filter = $('#notify-filter');
+    var typeSel = $('#notify-type');
     if (refresh) refresh.addEventListener('click', loadNotifyLogs);
+    if (typeSel) typeSel.addEventListener('change', loadNotifyLogs);
     if (filter) {
       filter.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
@@ -498,6 +589,8 @@
     setupTabs();
     setupSubmitForm();
     setupQueryForm();
+    setupTransferForm();
+    setupTransferQueryForm();
     setupSignForm();
     setupNotifyPanel();
 

@@ -97,6 +97,7 @@ function demo_config_preview(): ?array
         'sign_type'               => (int) ($config['sign_type'] ?? PaySign::SIGN_TYPE_MD5),
         'notify_url'              => (string) ($config['notify_url'] ?? ''),
         'return_url'              => (string) ($config['return_url'] ?? ''),
+        'transfer_notify_url'     => (string) ($config['transfer_notify_url'] ?? ''),
         'default_pay_type'        => (int) ($config['default_pay_type'] ?? 3),
         'has_platform_rsa_public' => trim((string) ($config['platform_rsa_public_key'] ?? '')) !== '',
     ];

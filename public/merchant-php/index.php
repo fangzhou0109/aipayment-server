@@ -48,6 +48,7 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
       <button type="button" class="tab-btn active" data-tab="overview">概览</button>
       <button type="button" class="tab-btn" data-tab="submit">测试下单</button>
       <button type="button" class="tab-btn" data-tab="query">测试查单</button>
+      <button type="button" class="tab-btn" data-tab="transfer">测试代付</button>
       <button type="button" class="tab-btn" data-tab="sign">签名工具</button>
       <button type="button" class="tab-btn" data-tab="notify">回调日志</button>
       <button type="button" class="tab-btn" data-tab="docs">对接文档</button>
@@ -84,6 +85,9 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
           <tr><th><code>query_order.php</code></th><td>POST <?= htmlspecialchars($gatewayBase ? $gatewayBase . '/query' : '/pay/query', ENT_QUOTES, 'UTF-8') ?></td></tr>
           <tr><th><code>notify_url.php</code></th><td>异步通知，验签后响应 <code>SUCCESS</code></td></tr>
           <tr><th><code>return_url.php</code></th><td>支付完成浏览器跳转</td></tr>
+          <tr><th><code>submit_transfer.php</code></th><td>代付下单，POST <?= htmlspecialchars($gatewayBase ? $gatewayBase . '/transfer' : '/pay/transfer', ENT_QUOTES, 'UTF-8') ?></td></tr>
+          <tr><th><code>query_transfer.php</code></th><td>代付查单，POST <?= htmlspecialchars($gatewayBase ? $gatewayBase . '/transferQuery' : '/pay/transferQuery', ENT_QUOTES, 'UTF-8') ?></td></tr>
+          <tr><th><code>transfer_notify_url.php</code></th><td>代付异步通知，验签后响应 <code>SUCCESS</code></td></tr>
           <tr><th><code>health.php</code></th><td>网关健康检查 API（控制台用）</td></tr>
           <tr><th><code>build_sign.php</code></th><td>生成待签串与 curl 示例</td></tr>
           <tr><th><code>notify_logs.php</code></th><td>读取 <code>logs/notify.log</code></td></tr>
@@ -175,6 +179,73 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
       </div>
     </section>
 
+    <!-- 测试代付 -->
+    <section id="panel-transfer" class="panel">
+      <div class="card">
+        <h2>测试代付（提现下单）</h2>
+        <div class="alert alert-info" style="margin-bottom:14px">
+          代付收款标的由 <code>bank_card_id</code> 指定 —— 须先在<strong>商户门户「银行卡」</strong>绑定收款账号
+          （如 KBZPay 手机号）后取得其 ID。代付需商户有可用余额且已授权代付通道。
+        </div>
+        <form id="form-transfer" class="form-grid">
+          <div class="form-row">
+            <label for="transfer-amount">金额（元）</label>
+            <input type="number" id="transfer-amount" name="amount" value="1" min="0.01" step="0.01" required>
+            <p class="form-hint">提交时自动转为分（money 字段）；实际到账 = 金额 − 手续费</p>
+          </div>
+          <div class="form-row">
+            <label for="transfer-bank-card-id">bank_card_id</label>
+            <input type="number" id="transfer-bank-card-id" name="bank_card_id" min="1" placeholder="商户门户绑定的收款账号 ID" required style="max-width:320px">
+            <p class="form-hint">商户门户「银行卡」列表中该卡的 ID</p>
+          </div>
+          <div class="form-row">
+            <label for="transfer-out-biz-no">商户代付单号 out_biz_no</label>
+            <div>
+              <input type="text" id="transfer-out-biz-no" name="out_biz_no" placeholder="留空自动生成" style="max-width:320px">
+              <div class="btn-row" style="margin-top:6px">
+                <button type="button" class="btn btn-secondary" id="btn-gen-out-biz-no">生成单号</button>
+              </div>
+              <p class="form-hint">同商户幂等键：重复提交不会重复出款</p>
+            </div>
+          </div>
+          <div class="form-row">
+            <label for="transfer-notify">notify_url（代付回调）</label>
+            <input type="url" id="transfer-notify" name="notify_url" placeholder="留空使用 config.php 的 transfer_notify_url"
+              value="<?= $configOk ? htmlspecialchars((string) ($configPreview['transfer_notify_url'] ?? ''), ENT_QUOTES, 'UTF-8') : '' ?>">
+          </div>
+          <div class="form-row">
+            <label></label>
+            <div class="btn-row">
+              <button type="submit" class="btn btn-primary" id="btn-transfer">提交代付</button>
+            </div>
+          </div>
+        </form>
+        <div id="transfer-result"></div>
+      </div>
+
+      <div class="card">
+        <h2>代付查单</h2>
+        <form id="form-transfer-query" class="form-grid">
+          <div class="form-row">
+            <label for="transfer-query-out-biz-no">商户代付单号</label>
+            <div>
+              <input type="text" id="transfer-query-out-biz-no" name="out_biz_no" required placeholder="out_biz_no" style="max-width:360px">
+              <div class="btn-row" style="margin-top:6px">
+                <button type="button" class="btn btn-secondary" id="btn-fill-last-transfer">填入最近代付单号</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <label></label>
+            <div class="btn-row">
+              <button type="submit" class="btn btn-primary" id="btn-transfer-query">查询代付</button>
+            </div>
+          </div>
+        </form>
+        <div id="transfer-query-result"></div>
+      </div>
+    </section>
+
     <!-- 签名工具 -->
     <section id="panel-sign" class="panel">
       <div class="card">
@@ -222,9 +293,14 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
       <div class="card">
         <h2>异步通知日志</h2>
         <p style="color:var(--muted);margin:0 0 14px;font-size:13px">
-          读取 <code>notify_url.php</code> 写入的 <code>logs/notify.log</code>。须将 notify_url 配置为公网可访问地址（本地可用 ngrok）。
+          读取 <code>notify_url.php</code> / <code>transfer_notify_url.php</code> 写入的 <code>logs/notify.log</code>、
+          <code>logs/transfer_notify.log</code>。须将 notify_url 配置为公网可访问地址（本地可用 ngrok）。
         </p>
         <div class="btn-row" style="margin-bottom:14px">
+          <select id="notify-type" style="padding:8px 10px;border:1px solid var(--border);border-radius:6px">
+            <option value="">代收回调</option>
+            <option value="transfer">代付回调</option>
+          </select>
           <input type="text" id="notify-filter" placeholder="按商户订单号筛选" style="max-width:240px;padding:8px 10px;border:1px solid var(--border);border-radius:6px">
           <button type="button" class="btn btn-secondary" id="btn-refresh-notify">刷新</button>
         </div>
@@ -247,6 +323,8 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
               <tr><th>网关基址</th><td class="mono"><?= htmlspecialchars($gatewayBase ?: '（见 config.php）', ENT_QUOTES, 'UTF-8') ?></td></tr>
               <tr><th>下单</th><td class="mono">POST <?= htmlspecialchars($gatewayBase ? $gatewayBase . '/submitOrder' : '{gateway_base}/submitOrder', ENT_QUOTES, 'UTF-8') ?></td></tr>
               <tr><th>查单</th><td class="mono">POST <?= htmlspecialchars($gatewayBase ? $gatewayBase . '/query' : '{gateway_base}/query', ENT_QUOTES, 'UTF-8') ?></td></tr>
+              <tr><th>代付下单</th><td class="mono">POST <?= htmlspecialchars($gatewayBase ? $gatewayBase . '/transfer' : '{gateway_base}/transfer', ENT_QUOTES, 'UTF-8') ?></td></tr>
+              <tr><th>代付查单</th><td class="mono">POST <?= htmlspecialchars($gatewayBase ? $gatewayBase . '/transferQuery' : '{gateway_base}/transferQuery', ENT_QUOTES, 'UTF-8') ?></td></tr>
             </table>
           </div>
         </details>
@@ -320,6 +398,88 @@ $gatewayBase = $configOk ? rtrim((string) ($config['gateway_base'] ?? ''), '/') 
               </tbody>
             </table>
             <p>验签通过后须响应纯文本 <code>SUCCESS</code>（大小写敏感），否则平台重试。处理须<strong>幂等</strong>。</p>
+          </div>
+        </details>
+
+        <details class="collapse">
+          <summary>代付（提现）下单 POST /pay/transfer</summary>
+          <div class="collapse-body">
+            <p style="margin:0 0 10px;color:var(--muted);font-size:13px">
+              下游商户服务器发起出款（提现）。鉴权与代收一致（<code>mch_id</code> + <code>time</code> + <code>sign</code>）。
+              <code>out_biz_no</code> 为同商户幂等键，重复提交相同单号不会重复出款。
+            </p>
+            <table class="doc-table">
+              <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>mch_id</td><td>是</td><td>商户号</td></tr>
+                <tr><td>out_biz_no</td><td>是</td><td>商户代付单号，同商户唯一（幂等键）</td></tr>
+                <tr><td>money</td><td>是</td><td>出款金额，单位<strong>分</strong>（字符串）</td></tr>
+                <tr><td>bank_card_id</td><td>是</td><td>收款账号 ID（商户门户「银行卡」绑定后获得；如 KBZPay 手机号）</td></tr>
+                <tr><td>notify_url</td><td>否</td><td>代付结果异步回调地址（留空用商户默认）</td></tr>
+                <tr><td>time</td><td>是</td><td>Unix 时间戳（秒）</td></tr>
+                <tr><td>client_ip</td><td>否</td><td>用户 IP</td></tr>
+                <tr><td>sign / sign_type</td><td>是</td><td>签名（规则同代收）</td></tr>
+              </tbody>
+            </table>
+            <p>成功返回 <code>code=200</code>，<code>data</code> 含
+              <code>withdraw_no</code>（平台代付单号）、<code>amount</code>/<code>fee</code>/<code>real_amount</code>、
+              <code>status</code> 与 <code>status_text</code>。手续费由平台按通道计算，<code>real_amount</code> 为实际到账。
+            </p>
+          </div>
+        </details>
+
+        <details class="collapse">
+          <summary>代付查单 POST /pay/transferQuery</summary>
+          <div class="collapse-body">
+            <table class="doc-table">
+              <thead><tr><th>参数</th><th>必填</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>mch_id</td><td>是</td><td>商户号</td></tr>
+                <tr><td>out_biz_no</td><td>是</td><td>商户代付单号</td></tr>
+                <tr><td>time</td><td>是</td><td>Unix 时间戳</td></tr>
+                <tr><td>client_ip</td><td>否</td><td>客户端 IP</td></tr>
+                <tr><td>sign / sign_type</td><td>是</td><td>签名</td></tr>
+              </tbody>
+            </table>
+            <p>返回 <code>data.status_text</code>，取值见下「代付状态码」。仅能查本商户代付单。</p>
+          </div>
+        </details>
+
+        <details class="collapse">
+          <summary>代付异步通知（平台 → transfer_notify_url）</summary>
+          <div class="collapse-body">
+            <table class="doc-table">
+              <thead><tr><th>参数</th><th>说明</th></tr></thead>
+              <tbody>
+                <tr><td>out_biz_no</td><td>商户代付单号</td></tr>
+                <tr><td>transfer_no</td><td>平台代付单号</td></tr>
+                <tr><td>money</td><td>金额（分）</td></tr>
+                <tr><td>mch_id</td><td>商户号</td></tr>
+                <tr><td>status</td><td><code>success</code>=出款成功 / <code>fail</code>=出款失败</td></tr>
+                <tr><td>reason</td><td>失败原因（status=fail 时可能附带）</td></tr>
+                <tr><td>time / sign / sign_type</td><td>时间与签名</td></tr>
+              </tbody>
+            </table>
+            <p>验签通过后须响应纯文本 <code>SUCCESS</code>，否则平台重试。处理须<strong>幂等</strong>；
+              <code>status=fail</code> 时应把出款金额退回给提现用户。</p>
+          </div>
+        </details>
+
+        <details class="collapse">
+          <summary>代付状态码 status_text</summary>
+          <div class="collapse-body">
+            <table class="doc-table">
+              <thead><tr><th>值</th><th>含义</th><th>终态</th></tr></thead>
+              <tbody>
+                <tr><td>pending</td><td>待审核（金额超阈值转人工）</td><td>否</td></tr>
+                <tr><td>approved</td><td>审核通过待下发</td><td>否</td></tr>
+                <tr><td>paying</td><td>代付中（已提交上游，等回调）</td><td>否</td></tr>
+                <tr><td>success</td><td>出款成功</td><td>是</td></tr>
+                <tr><td>fail</td><td>出款失败（已退款解冻）</td><td>是</td></tr>
+                <tr><td>rejected</td><td>审核拒绝（已退款解冻）</td><td>是</td></tr>
+              </tbody>
+            </table>
+            <p style="color:var(--muted);font-size:13px">下单后多为 <code>pending</code> 或 <code>paying</code>，最终结果以异步通知/查单的终态为准。</p>
           </div>
         </details>
 
