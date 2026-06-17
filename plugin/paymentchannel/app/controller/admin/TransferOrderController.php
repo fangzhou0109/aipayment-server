@@ -56,10 +56,14 @@ class TransferOrderController extends BaseController
         // 本菜单仅管「API 代付」单
         $where['source'] = Withdraw::SOURCE_API_TRANSFER;
         $query = $this->logic->search($where);
-        // 「代付自审」商户的单平台不再管：从平台审核列表中排除（transfer_self_audit=1）
+        // 「代付自审」商户：仅把其「待审核」单移出平台队列（交商户门户自审），
+        // 历史单（下发中/成功/失败/拒绝等）平台仍可查，平台只是不再审核它们的待审核单。
         $selfAuditIds = Merchant::where('transfer_self_audit', 1)->column('id');
         if (!empty($selfAuditIds)) {
-            $query->whereNotIn('merchant_id', $selfAuditIds);
+            $query->where(function ($q) use ($selfAuditIds) {
+                $q->whereNotIn('merchant_id', $selfAuditIds)
+                    ->whereOr('status', '<>', Withdraw::STATUS_PENDING);
+            });
         }
         return $this->success($this->logic->getList($query));
     }
