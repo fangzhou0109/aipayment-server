@@ -242,6 +242,35 @@ class MerchantLogic extends PaymentBaseLogic
     }
 
     /**
+     * 商户门户：更新 API 代付自动下发阈值（每商户独立）
+     *
+     * @param int $merchantId 商户ID
+     * @param string $threshold 阈值（元）；0 表示回落全局/全部转人工
+     * @return string 规整后的阈值（四位小数）
+     * @throws PaymentException 格式非法/负数
+     */
+    public function updateAutoDisbursementThreshold(int $merchantId, string $threshold): string
+    {
+        $trimmed = trim($threshold);
+        if ($trimmed === '' || !is_numeric($trimmed)) {
+            throw new PaymentException('代付自动下发阈值格式非法（应为不小于 0 的数字）');
+        }
+        if (AmountHelper::compare($trimmed, '0') < 0) {
+            throw new PaymentException('代付自动下发阈值不能为负数');
+        }
+        $value = AmountHelper::format($trimmed);
+
+        $model = $this->read($merchantId);
+        // 阈值不得超过商户可用余额（避免单笔自动下发超出账户可用资金）
+        $balance = AmountHelper::format((string) ($model->balance ?? '0'));
+        if (AmountHelper::compare($value, $balance) > 0) {
+            throw new PaymentException('代付自动下发阈值不能超过商户可用余额（' . $balance . ' 元）');
+        }
+        $model->save(['auto_disbursement_threshold' => $value]);
+        return $value;
+    }
+
+    /**
      * 从商户模型组装下发凭证（直接读属性，绕过 $hidden）
      *
      * @param Merchant $merchant 商户模型

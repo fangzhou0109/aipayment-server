@@ -261,7 +261,7 @@ class WithdrawLogic extends PaymentBaseLogic
         }
 
         // 阈值判定：<=阈值自动放款（置审核通过→立即下发）；>阈值留「待审核」转后台人工
-        if ($this->shouldAutoDisburse($amount)) {
+        if ($this->shouldAutoDisburse($amount, $merchant)) {
             $this->updateWithdraw($withdrawId, ['status' => Withdraw::STATUS_APPROVED]);
             $withdraw = $this->loadWithdraw($withdrawId);
             if ($withdraw !== null) {
@@ -912,11 +912,10 @@ class WithdrawLogic extends PaymentBaseLogic
         }
 
         // 方式二：请求直传收款人信息（下游用户提现，每单不同）
+        // 收款人姓名 account_name 可选——部分场景（如缅甸钱包/手机号代付）只认账号，无需姓名；
+        // 仅 account_no（收款账号/钱包号/手机号）为必填。
         $accountName = trim((string) ($params['account_name'] ?? ''));
         $accountNo   = trim((string) ($params['account_no'] ?? ''));
-        if ($accountName === '') {
-            throw new PaymentException('缺少收款人姓名 account_name');
-        }
         if ($accountNo === '') {
             throw new PaymentException('缺少收款账号 account_no');
         }
@@ -1004,17 +1003,24 @@ class WithdrawLogic extends PaymentBaseLogic
     }
 
     /**
-     * 是否自动放款（API 代付阈值判定）
+     * 是否自动放款（API 代付阈值判定，每商户独立）
      *
-     * 读配置 transfer_api.auto_threshold（元）：<=0 表示全部转后台人工审核；
-     * 否则代付金额 <= 阈值自动放款，> 阈值留待人工。
+     * 优先取商户自设阈值 merchant.auto_disbursement_threshold（元）：
+     *   - 商户阈值 > 0：代付金额 <= 阈值自动放款，> 阈值留待人工；
+     *   - 商户阈值 <= 0（默认/未设）：回落平台全局配置 transfer_api.auto_threshold
+     *     （全局也 <=0 时表示全部转后台人工审核）。
      *
      * @param string $amount 代付金额（元）
+     * @param array $merchant 商户上下文（含 auto_disbursement_threshold）
      * @return bool true=自动放款
      */
-    protected function shouldAutoDisburse(string $amount): bool
+    protected function shouldAutoDisburse(string $amount, array $merchant = []): bool
     {
-        $threshold = AmountHelper::format((string) config('plugin.paymentchannel.app.transfer_api.auto_threshold', '0'));
+        // 商户自设阈值优先；为 0/未设时回落平台全局配置
+        $merchantThreshold = AmountHelper::format((string) ($merchant['auto_disbursement_threshold'] ?? '0'));
+        $threshold = AmountHelper::gtZero($merchantThreshold)
+            ? $merchantThreshold
+            : AmountHelper::format((string) config('plugin.paymentchannel.app.transfer_api.auto_threshold', '0'));
         if (!AmountHelper::gtZero($threshold)) {
             return false;
         }

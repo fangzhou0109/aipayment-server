@@ -7,8 +7,9 @@
  * 重复提交相同 out_biz_no 不会重复出款，仅返回既有单据状态。
  *
  * 收款人二选一：
- *   ① 直传收款人信息（推荐，下游用户提现）：account_name + account_no（可带
- *      bank_name/bank_code/branch_name/account_phone），每单收款人都不同；
+ *   ① 直传收款人信息（推荐，下游用户提现）：account_no 必填，account_name 可选
+ *      （部分场景如缅甸钱包/手机号代付无需姓名），可带 bank_name/bank_code/
+ *      branch_name/account_phone，每单收款人都不同；
  *   ② 预绑 bank_card_id：商户在门户「银行卡」绑定的自有收款卡 ID（兼容老用法）。
  *
  * 浏览器访问本文件将发起一笔测试代付并输出 JSON；也可在业务代码中 require lib 后自行组装。
@@ -47,13 +48,12 @@ $params = [
 $bankCardId = (int) ($input['bank_card_id'] ?? 0);
 $accountName = trim((string) ($input['account_name'] ?? ''));
 $accountNo   = trim((string) ($input['account_no'] ?? ''));
-if ($accountName !== '' || $accountNo !== '') {
-    if ($accountName === '' || $accountNo === '') {
-        demo_json_response(['ok' => false, 'message' => '直传收款人时 account_name 与 account_no 均必填'], 400);
-        exit;
+if ($accountNo !== '') {
+    // account_no（账号/钱包号/手机号）必填；account_name 可选（如缅甸钱包代付无需姓名）
+    $params['account_no'] = $accountNo;
+    if ($accountName !== '') {
+        $params['account_name'] = $accountName;
     }
-    $params['account_name'] = $accountName;
-    $params['account_no']   = $accountNo;
     foreach (['bank_name', 'bank_code', 'branch_name', 'account_phone'] as $k) {
         $v = trim((string) ($input[$k] ?? ''));
         if ($v !== '') {
@@ -63,7 +63,7 @@ if ($accountName !== '' || $accountNo !== '') {
 } elseif ($bankCardId > 0) {
     $params['bank_card_id'] = (string) $bankCardId;
 } else {
-    demo_json_response(['ok' => false, 'message' => '请填写收款人信息（account_name + account_no）或预绑卡 bank_card_id'], 400);
+    demo_json_response(['ok' => false, 'message' => '请填写收款账号 account_no（姓名可选）或预绑卡 bank_card_id'], 400);
     exit;
 }
 

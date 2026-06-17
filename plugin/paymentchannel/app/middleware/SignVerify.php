@@ -70,6 +70,7 @@ class SignVerify implements MiddlewareInterface
             'rate_transfer'       => (string) $merchant->rate_transfer,
             'single_min'          => (string) $merchant->single_min,
             'single_max'          => (string) $merchant->single_max,
+            'auto_disbursement_threshold' => (string) $merchant->auto_disbursement_threshold,
             'status'              => (int) $merchant->status,
             'ip_whitelist'        => (string) $merchant->ip_whitelist,
             'ip_whitelist_status' => (int) $merchant->ip_whitelist_status,

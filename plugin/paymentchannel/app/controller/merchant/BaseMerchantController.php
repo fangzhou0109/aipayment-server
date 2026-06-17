@@ -80,6 +80,7 @@ class BaseMerchantController extends OpenController
             'balance_freeze' => (string) $m->balance_freeze,
             'single_min'     => (string) $m->single_min,
             'single_max'     => (string) $m->single_max,
+            'auto_disbursement_threshold' => (string) $m->auto_disbursement_threshold,
         ];
     }
 }

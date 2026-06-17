@@ -214,6 +214,7 @@ Route::group('/mapi', function () {
     Route::get('/account/apiInfo', [\plugin\paymentchannel\app\controller\merchant\AccountController::class, 'apiInfo']);
     Route::post('/account/resetKey', [\plugin\paymentchannel\app\controller\merchant\AccountController::class, 'resetKey']);
     Route::post('/account/updateRsaPublicKey', [\plugin\paymentchannel\app\controller\merchant\AccountController::class, 'updateRsaPublicKey']);
+    Route::post('/account/updateAutoDisburseThreshold', [\plugin\paymentchannel\app\controller\merchant\AccountController::class, 'updateAutoDisburseThreshold']);
 })->middleware([
     MerchantAuth::class,
 ]);

@@ -84,7 +84,7 @@ demo/merchant-php/
 
 下游商户服务器发起出款。鉴权与代收一致（`mch_id` + `time` + `sign`，签名规则完全相同）。
 
-> **收款人信息随请求直传** —— 下游用户在下游平台提现，每单的收款人姓名/卡号/手机号都不同，由下游平台随 `/pay/transfer` 请求直传（`account_name` + `account_no`），无需预先绑卡。代付要求商户有可用余额且已授权代付通道。
+> **收款人信息随请求直传** —— 下游用户在下游平台提现，每单的收款人姓名/卡号/手机号都不同，由下游平台随 `/pay/transfer` 请求直传（`account_no` 必填，`account_name` 可选），无需预先绑卡。代付要求商户有可用余额且已授权代付通道。
 
 ### 代付下单 `POST /pay/transfer`
 
@@ -93,8 +93,8 @@ demo/merchant-php/
 | mch_id | 是 | 商户号 |
 | out_biz_no | 是 | 商户代付单号，同商户唯一（幂等键，重复提交不重复出款） |
 | money | 是 | 出款金额，单位**分**（字符串） |
-| account_name | 二选一 | 收款人姓名（下游用户提现，随单直传） |
-| account_no | 二选一 | 收款账号/银行卡号（与 account_name 同时必填） |
+| account_name | 可选 | 收款人姓名（随单直传；缅甸钱包/手机号代付等可留空） |
+| account_no | 直传必填 | 收款账号/钱包号/手机号（与 bank_card_id 二选一） |
 | bank_name | 否 | 开户银行名称 |
 | bank_code | 否 | 银行编码（部分通道必填） |
 | branch_name | 否 | 开户支行 |

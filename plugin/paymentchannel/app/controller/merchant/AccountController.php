@@ -51,7 +51,32 @@ class AccountController extends BaseMerchantController
             'rate_transfer'           => (string) $m->rate_transfer,
             'single_min'              => (string) $m->single_min,
             'single_max'              => (string) $m->single_max,
+            'auto_disbursement_threshold' => (string) $m->auto_disbursement_threshold,
+            'balance'                 => (string) $m->balance,
         ]);
+    }
+
+    /**
+     * 设置 API 代付自动下发阈值（每商户独立）
+     * 路由：POST /mapi/account/updateAutoDisburseThreshold
+     *
+     * 阈值 > 0 时，API 代付进单金额 <= 阈值自动下发；<=0 回落平台全局配置。
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function updateAutoDisburseThreshold(Request $request): Response
+    {
+        $merchantId = $this->merchantId($request);
+        $threshold = (string) $request->post('auto_disbursement_threshold', '');
+
+        try {
+            $value = (new MerchantLogic())->updateAutoDisbursementThreshold($merchantId, $threshold);
+        } catch (PaymentException $e) {
+            return $this->fail($e->getMessage());
+        }
+
+        return $this->success(['auto_disbursement_threshold' => $value], '代付自动下发阈值已保存');
     }
 
     /**

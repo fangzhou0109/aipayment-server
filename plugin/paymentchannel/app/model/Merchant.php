@@ -24,6 +24,7 @@ use plugin\saiadmin\basic\think\BaseModel;
  * @property string $balance_freeze 冻结余额
  * @property string $rate 代收费率（历史/展示；Phase 9.1 起不参与代收下单计费，以 merchant_channel 为准）
  * @property string $rate_transfer 商户全局保底代付费率（%）；有代付通道时通道链优先，无通道或链均为 0 时用于提现 apply 算费
+ * @property string $auto_disbursement_threshold API代付自动下发阈值（元，0=回落全局 transfer_api.auto_threshold；>0 时金额<=该值自动下发）
  * @property int    $status 状态 (1正常 2停用)
  */
 class Merchant extends BaseModel

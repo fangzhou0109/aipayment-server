@@ -221,6 +221,7 @@ CREATE TABLE `sa_pay_merchant` (
   `rate_transfer` decimal(8,4) NOT NULL DEFAULT '0.0000' COMMENT '代付默认费率（百分数）',
   `single_min` decimal(16,4) NOT NULL DEFAULT '0.0000' COMMENT '单笔最小金额（0 表示不限）',
   `single_max` decimal(16,4) NOT NULL DEFAULT '0.0000' COMMENT '单笔最大金额（0 表示不限）',
+  `auto_disbursement_threshold` decimal(16,4) NOT NULL DEFAULT '0.0000' COMMENT 'API代付自动下发阈值（元，0=回落全局/全部人工；>0时金额<=该值自动下发）',
   `ip_whitelist` text COMMENT 'IP 白名单（逗号分隔）',
   `ip_whitelist_status` smallint NOT NULL DEFAULT '2' COMMENT 'IP 白名单开关 (1开启 2关闭)',
   `login_name` varchar(50) DEFAULT NULL COMMENT '商户门户登录名',

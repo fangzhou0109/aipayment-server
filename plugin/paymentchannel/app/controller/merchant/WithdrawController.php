@@ -40,6 +40,8 @@ class WithdrawController extends BaseMerchantController
             ['create_time', []],
         ]);
         $where['merchant_id'] = $merchantId;
+        // 本列表仅含「商户人工提现」；API 代付单（下游用户出款）在「代付订单」菜单
+        $where['source'] = Withdraw::SOURCE_WITHDRAW;
 
         $logic = new WithdrawLogic();
         $query = $logic->search($where);
