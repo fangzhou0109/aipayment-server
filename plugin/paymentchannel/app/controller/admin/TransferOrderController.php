@@ -9,6 +9,7 @@
 namespace plugin\paymentchannel\app\controller\admin;
 
 use plugin\paymentchannel\app\logic\WithdrawLogic;
+use plugin\paymentchannel\app\model\Merchant;
 use plugin\paymentchannel\app\model\Withdraw;
 use plugin\saiadmin\basic\BaseController;
 use plugin\saiadmin\service\Permission;
@@ -55,6 +56,11 @@ class TransferOrderController extends BaseController
         // 本菜单仅管「API 代付」单
         $where['source'] = Withdraw::SOURCE_API_TRANSFER;
         $query = $this->logic->search($where);
+        // 「代付自审」商户的单平台不再管：从平台审核列表中排除（transfer_self_audit=1）
+        $selfAuditIds = Merchant::where('transfer_self_audit', 1)->column('id');
+        if (!empty($selfAuditIds)) {
+            $query->whereNotIn('merchant_id', $selfAuditIds);
+        }
         return $this->success($this->logic->getList($query));
     }
 

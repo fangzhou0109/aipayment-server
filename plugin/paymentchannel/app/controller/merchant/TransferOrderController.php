@@ -71,6 +71,41 @@ class TransferOrderController extends BaseMerchantController
     }
 
     /**
+     * 商户自助审核代付单（审核下发 / 拒绝）
+     * 路由：POST /mapi/transferOrder/audit
+     *
+     * 仅对本商户的「待审核」API 代付单生效，且须平台已开通「代付自审」开关。
+     * disburse=审核下发（用平台已授权代付通道出款）｜ reject=拒绝（解冻退款）。
+     *
+     * @param Request $request { id, action(disburse|reject), remark? }
+     * @return Response
+     */
+    public function audit(Request $request): Response
+    {
+        $merchantId = $this->merchantId($request);
+        $id = $request->post('id', '');
+        if (empty($id)) {
+            return $this->fail('请选择要审核的代付单');
+        }
+        $action = (string) $request->post('action', '');
+        $remark = (string) $request->post('remark', '');
+
+        try {
+            $result = (new WithdrawLogic())->auditByMerchant($id, $merchantId, $action, $remark);
+        } catch (Throwable $e) {
+            return $this->fail($e->getMessage());
+        }
+
+        $messages = [
+            'paying'     => '已提交代付，等待上游回调',
+            'pay_failed' => '代付受理失败，已解冻退款',
+            'rejected'   => '已拒绝并解冻退款',
+        ];
+        $msg = $messages[$result['result'] ?? ''] ?? '审核完成';
+        return $this->success($result, $msg);
+    }
+
+    /**
      * 手动重推下游通知（仅终态可推；委托 WithdrawLogic 复用通知服务）
      * 路由：POST /mapi/transferOrder/renotify
      *

@@ -182,6 +182,7 @@ Route::group('/mapi', function () {
     // 代付订单（下游 API 代付单 source=2，只读查询 + 手动重推下游通知）
     Route::get('/transferOrder/index', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'index']);
     Route::get('/transferOrder/read', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'read']);
+    Route::post('/transferOrder/audit', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'audit']);
     Route::post('/transferOrder/renotify', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'renotify']);
 
     // 充值（列表 + 发起申请 + 详情）

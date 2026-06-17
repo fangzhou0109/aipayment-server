@@ -12,6 +12,7 @@ use Closure;
 use plugin\paymentchannel\app\exception\PaymentException;
 use plugin\paymentchannel\app\model\BankCard;
 use plugin\paymentchannel\app\model\Channel;
+use plugin\paymentchannel\app\model\Merchant;
 use plugin\paymentchannel\app\model\MerchantChannel;
 use plugin\paymentchannel\app\model\NotifyLog;
 use plugin\paymentchannel\app\model\Withdraw;
@@ -474,6 +475,46 @@ class WithdrawLogic extends PaymentBaseLogic
         ]));
         $withdraw['status'] = Withdraw::STATUS_APPROVED;
         return $this->disburse($withdraw, $channelId);
+    }
+
+    /**
+     * 商户门户「代付自审」：商户自助审核下发 / 拒绝自己的 API 代付待审核单
+     *
+     * 安全约束（防越权 / 越权审）：
+     *  1. 单必须属于该商户（merchant_id 一致）；
+     *  2. 仅限 API 代付单（source=2，门户人工提现走平台审核）；
+     *  3. 商户必须已开启「代付自审」开关（transfer_self_audit=1，平台运营授予）；
+     *  4. 仅 disburse（审核下发）/ reject（拒绝退款）两种动作，下发用平台已授权代付通道（channelId=0 自动取）。
+     *
+     * @param int|string $withdrawId 代付单ID
+     * @param int $merchantId 当前登录商户ID（取自 token）
+     * @param string $action disburse=审核下发 | reject=拒绝
+     * @param string $remark 审核备注
+     * @return array { withdraw_no, result, status }
+     * @throws PaymentException
+     */
+    public function auditByMerchant(int|string $withdrawId, int $merchantId, string $action, string $remark = ''): array
+    {
+        $action = strtolower(trim($action));
+        if (!in_array($action, ['disburse', 'reject'], true)) {
+            throw new PaymentException('无效的审核操作');
+        }
+
+        $withdraw = $this->loadWithdraw((int) $withdrawId);
+        if ($withdraw === null || (int) ($withdraw['merchant_id'] ?? 0) !== $merchantId) {
+            throw new PaymentException('代付单不存在');
+        }
+        if ((int) ($withdraw['source'] ?? 0) !== Withdraw::SOURCE_API_TRANSFER) {
+            throw new PaymentException('该单不支持商户自审');
+        }
+
+        $merchant = Merchant::where('id', $merchantId)->find();
+        if (!$merchant || (int) $merchant->transfer_self_audit !== 1) {
+            throw new PaymentException('未开通代付自审权限');
+        }
+
+        // 复用统一审核状态机；auditBy=0 标记为商户自审（区别于平台运营审核）
+        return $this->audit($withdrawId, $action, 0, $remark, 0);
     }
 
     /**
@@ -1006,9 +1047,8 @@ class WithdrawLogic extends PaymentBaseLogic
      * 是否自动放款（API 代付阈值判定，每商户独立）
      *
      * 优先取商户自设阈值 merchant.auto_disbursement_threshold（元）：
-     *   - 商户阈值 > 0：代付金额 <= 阈值自动放款，> 阈值留待人工；
-     *   - 商户阈值 <= 0（默认/未设）：回落平台全局配置 transfer_api.auto_threshold
-     *     （全局也 <=0 时表示全部转后台人工审核）。
+     *   - 阈值未设（<=0，默认）：全部自动下发，免人工审核；
+     *   - 阈值 > 0：代付金额 <= 阈值自动下发，> 阈值留「待审核」转人工。
      *
      * @param string $amount 代付金额（元）
      * @param array $merchant 商户上下文（含 auto_disbursement_threshold）
@@ -1016,15 +1056,12 @@ class WithdrawLogic extends PaymentBaseLogic
      */
     protected function shouldAutoDisburse(string $amount, array $merchant = []): bool
     {
-        // 商户自设阈值优先；为 0/未设时回落平台全局配置
-        $merchantThreshold = AmountHelper::format((string) ($merchant['auto_disbursement_threshold'] ?? '0'));
-        $threshold = AmountHelper::gtZero($merchantThreshold)
-            ? $merchantThreshold
-            : AmountHelper::format((string) config('plugin.paymentchannel.app.transfer_api.auto_threshold', '0'));
+        $threshold = AmountHelper::format((string) ($merchant['auto_disbursement_threshold'] ?? '0'));
+        // 阈值未设（<=0）：全部自动下发，免人工审核
         if (!AmountHelper::gtZero($threshold)) {
-            return false;
+            return true;
         }
-        // amount <= threshold → 自动放款
+        // 阈值 > 0：金额 <= 阈值自动下发，> 阈值转人工
         return AmountHelper::compare($amount, $threshold) <= 0;
     }
 

@@ -120,6 +120,7 @@ class MerchantAuthLogic extends BaseLogic
             'rate_transfer'       => (string) ($m['rate_transfer'] ?? '0.0000'),
             'single_min'          => (string) ($m['single_min'] ?? '0.0000'),
             'single_max'          => (string) ($m['single_max'] ?? '0.0000'),
+            'transfer_self_audit' => (int) ($m['transfer_self_audit'] ?? 0),
             'ip_whitelist'        => (string) ($m['ip_whitelist'] ?? ''),
             'ip_whitelist_status' => (int) ($m['ip_whitelist_status'] ?? 2),
             'status'              => (int) ($m['status'] ?? 0),
