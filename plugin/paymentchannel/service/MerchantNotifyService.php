@@ -300,13 +300,17 @@ class MerchantNotifyService
 
         // nextRetry 落在 1..MAX_RETRY，对应 BACKOFF 下标 0..MAX_RETRY-1 必然存在
         $delay = self::BACKOFF[$nextRetry - 1];
-        $this->updateLog($logId, [
-            'status'           => NotifyLog::STATUS_PENDING,
-            'response_body'    => $respBody,
-            'http_code'        => $httpCode,
-            'retry_num'        => $nextRetry,
-            'next_notify_time' => date('Y-m-d H:i:s', $this->now() + (int) $delay),
-        ]);
+        // 条件重排：仅当该日志仍为「待通知」时才安排下次重试。
+        // 若投递在途期间被人工终止（如代付人工改成功置 FAILED），则此处不再复活，杜绝下游继续收到过期 fail。
+        NotifyLog::where('id', $logId)
+            ->where('status', NotifyLog::STATUS_PENDING)
+            ->update([
+                'status'           => NotifyLog::STATUS_PENDING,
+                'response_body'    => $respBody,
+                'http_code'        => $httpCode,
+                'retry_num'        => $nextRetry,
+                'next_notify_time' => date('Y-m-d H:i:s', $this->now() + (int) $delay),
+            ]);
         return false;
     }
 
