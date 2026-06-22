@@ -10,6 +10,7 @@ namespace plugin\paymentchannel\app\logic;
 
 use plugin\paymentchannel\app\exception\PaymentException;
 use plugin\paymentchannel\app\model\Merchant;
+use plugin\paymentchannel\app\model\NotifyLog;
 use plugin\paymentchannel\app\model\Order;
 use plugin\paymentchannel\service\AmountHelper;
 use plugin\paymentchannel\service\LedgerService;
@@ -182,6 +183,55 @@ class OrderLogic extends PaymentBaseLogic
             'notify_ok'      => $notifyOk,
             'notify_url'     => (string) ($order['notify_url'] ?? ''),
             'is_test_notify' => TestNotifyService::isTestNotifyUrl((string) ($order['notify_url'] ?? '')),
+        ];
+    }
+
+    /**
+     * 商户门户手动重推「代收」结果通知到下游（仅本商户、仅已支付）
+     *
+     * 适用场景：下游因网络等原因漏收平台代收成功回调，商户在门户「订单」页手动重推。
+     * 仅已支付订单可重推；优先「原样重放」已存在通知日志（含原签名体），
+     * 无历史日志则按当前已支付状态重新首发，全部委托 {@see MerchantNotifyService}。
+     *
+     * @param int|string $id 订单ID
+     * @param int $merchantId 当前登录商户ID（取自 token，防越权）
+     * @return array{success:bool, message:string}
+     * @throws PaymentException 订单不存在 / 非已支付 / 无通知地址
+     */
+    public function renotifyByMerchant(int|string $id, int $merchantId): array
+    {
+        $order = Order::where('id', $id)
+            ->where('merchant_id', $merchantId)
+            ->find();
+        if (!$order) {
+            throw new PaymentException('订单不存在');
+        }
+        $data = $order->toArray();
+
+        if (trim((string) ($data['notify_url'] ?? '')) === '') {
+            throw new PaymentException('该订单未设置下游通知地址，无需通知');
+        }
+
+        if ((int) ($data['status'] ?? 0) !== Order::STATUS_PAID) {
+            throw new PaymentException('订单未支付成功，暂无可推送的结果通知');
+        }
+
+        $service = new MerchantNotifyService();
+
+        // 优先原样重放最近一条代收通知日志（保持与首发一致的签名体）
+        $log = NotifyLog::where('order_no', (string) ($data['order_no'] ?? ''))
+            ->where('biz_type', NotifyLog::BIZ_PAY)
+            ->order('id', 'desc')
+            ->find();
+        if ($log) {
+            return $service->resendManual((int) $log->id);
+        }
+
+        // 无历史通知日志：按当前已支付状态重新首发
+        $ok = $service->dispatch($data);
+        return [
+            'success' => $ok,
+            'message' => $ok ? '通知已重新投递，商户已回应 SUCCESS' : '通知投递失败，将按退避策略继续自动重试',
         ];
     }
 

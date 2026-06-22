@@ -170,9 +170,10 @@ Route::group('/mapi', function () {
     // 首页统计
     Route::get('/dashboard/stats', [\plugin\paymentchannel\app\controller\merchant\DashboardController::class, 'stats']);
 
-    // 订单（仅本商户，只读查单）
+    // 订单（仅本商户，查单 + 手动重推下游通知）
     Route::get('/order/index', [\plugin\paymentchannel\app\controller\merchant\OrderController::class, 'index']);
     Route::get('/order/read', [\plugin\paymentchannel\app\controller\merchant\OrderController::class, 'read']);
+    Route::post('/order/renotify', [\plugin\paymentchannel\app\controller\merchant\OrderController::class, 'renotify']);
 
     // 提现（列表 + 发起申请 + 详情）
     Route::get('/withdraw/index', [\plugin\paymentchannel\app\controller\merchant\WithdrawController::class, 'index']);

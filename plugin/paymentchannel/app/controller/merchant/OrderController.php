@@ -12,6 +12,7 @@ use plugin\paymentchannel\app\logic\OrderLogic;
 use plugin\paymentchannel\app\model\Order;
 use support\Request;
 use support\Response;
+use Throwable;
 
 /**
  * 商户门户订单控制器（/mapi/order）
@@ -65,5 +66,31 @@ class OrderController extends BaseMerchantController
             return $this->fail('订单不存在');
         }
         return $this->success($order->toArray());
+    }
+
+    /**
+     * 手动重推下游通知（仅本商户的已支付订单）
+     * 路由：POST /mapi/order/renotify
+     *
+     * @param Request $request { id }
+     * @return Response
+     */
+    public function renotify(Request $request): Response
+    {
+        $merchantId = $this->merchantId($request);
+        $id = $request->post('id', '');
+        if (empty($id)) {
+            return $this->fail('请选择要重推通知的订单');
+        }
+
+        try {
+            $result = (new OrderLogic())->renotifyByMerchant($id, $merchantId);
+        } catch (Throwable $e) {
+            return $this->fail($e->getMessage());
+        }
+
+        return ($result['success'] ?? false)
+            ? $this->success($result, $result['message'] ?? '通知已重新投递')
+            : $this->fail($result['message'] ?? '通知投递失败');
     }
 }
