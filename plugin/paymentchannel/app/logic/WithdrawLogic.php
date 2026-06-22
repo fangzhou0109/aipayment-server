@@ -502,11 +502,12 @@ class WithdrawLogic extends PaymentBaseLogic
         } elseif ($status === Withdraw::STATUS_PAY_FAILED) {
             // 失败时已退款解冻（可用余额已恢复），实际却已出款 → 从可用余额补扣同等毛额
             $this->transaction(function () use ($merchantId, $mchId, $withdrawNo, $amount, $data, $auditRemark) {
+                // adjustNo 直接用提现单号（写入 biz_no，便于流水溯源；幂等键由账本拼 adjust: 前缀）
                 $this->ledger->adjustBalance(
                     $merchantId,
                     $mchId,
                     '-' . $amount,
-                    'wd_manual_success:' . $withdrawNo,
+                    $withdrawNo,
                     '人工确认代付成功补扣：' . $withdrawNo
                 );
                 $this->updateWithdraw((int) $data['id'], [
