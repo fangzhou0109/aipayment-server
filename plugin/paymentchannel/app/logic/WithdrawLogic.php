@@ -476,6 +476,11 @@ class WithdrawLogic extends PaymentBaseLogic
 
         // 已成功：幂等，仅补发一次成功通知，不再动账
         if ($status === Withdraw::STATUS_SUCCESS) {
+            try {
+                (new MerchantNotifyService())->terminatePendingTransferNotify($withdrawNo);
+            } catch (Throwable $e) {
+                // 终止旧通知失败不阻断主流程
+            }
             $this->dispatchTransferNotify($data, true);
             return [
                 'withdraw_no' => $withdrawNo,
@@ -521,7 +526,13 @@ class WithdrawLogic extends PaymentBaseLogic
         }
 
         // 置成功后向下游推送成功通知（source=API代付才会真正发出）
+        // 先终止仍在自动重试的旧「失败」通知，避免下游持续收到过期的 fail 回调
         $data['status'] = Withdraw::STATUS_SUCCESS;
+        try {
+            (new MerchantNotifyService())->terminatePendingTransferNotify($withdrawNo);
+        } catch (Throwable $e) {
+            // 终止旧通知失败不阻断主流程
+        }
         $this->dispatchTransferNotify($data, true);
 
         return [

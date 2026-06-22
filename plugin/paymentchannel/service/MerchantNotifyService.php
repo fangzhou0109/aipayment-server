@@ -372,6 +372,30 @@ class MerchantNotifyService
     }
 
     /**
+     * 终止某代付单仍在重试的「待通知」日志（人工改成功时调用）
+     *
+     * 场景：代付先失败 → 已落一条 fail 通知日志且常驻进程在按退避自动重发；运营人工确认成功后，
+     * 必须把这些待通知的 fail 日志置为终态，否则下游会持续收到旧的失败通知（携原始 time 字段）。
+     * 仅处理 biz_type=代付 且 status=待通知 的日志，置 FAILED 并清空 next_notify_time（不再被扫描重发）。
+     *
+     * @param string $orderNo 平台代付单号（= withdraw_no）
+     * @return int 被终止的日志条数
+     */
+    public function terminatePendingTransferNotify(string $orderNo): int
+    {
+        if ($orderNo === '') {
+            return 0;
+        }
+        return NotifyLog::where('order_no', $orderNo)
+            ->where('biz_type', self::BIZ_TRANSFER)
+            ->where('status', NotifyLog::STATUS_PENDING)
+            ->update([
+                'status'           => NotifyLog::STATUS_FAILED,
+                'next_notify_time' => null,
+            ]);
+    }
+
+    /**
      * 创建通知日志，返回主键ID
      *
      * @param array $data 日志数据
