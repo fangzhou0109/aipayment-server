@@ -397,6 +397,141 @@ class WithdrawLogic extends PaymentBaseLogic
     }
 
     /**
+     * 平台后台手动重推「API 代付」结果通知到下游（仅 source=API代付）
+     *
+     * 适用场景：上游回调已入库且代付已终态，但下游漏收平台通知，运营在平台后台手动重推。
+     * 仅终态（成功/代付失败）可重推；优先原样重放最近通知日志，无历史日志则按当前终态重发。
+     *
+     * @param int|string $id 代付单ID
+     * @return array{success:bool, message:string}
+     * @throws PaymentException 单不存在 / 非 API 代付 / 非终态 / 无通知地址
+     */
+    public function renotifyByAdmin(int|string $id): array
+    {
+        $withdraw = Withdraw::where('id', $id)
+            ->where('source', Withdraw::SOURCE_API_TRANSFER)
+            ->find();
+        if (!$withdraw) {
+            throw new PaymentException('代付单不存在');
+        }
+        $data = $withdraw->toArray();
+
+        if (trim((string) ($data['notify_url'] ?? '')) === '') {
+            throw new PaymentException('该代付单未设置下游通知地址，无需通知');
+        }
+
+        $status = (int) ($data['status'] ?? 0);
+        if (!in_array($status, [Withdraw::STATUS_SUCCESS, Withdraw::STATUS_PAY_FAILED], true)) {
+            throw new PaymentException('代付处理中，暂无可推送的结果通知');
+        }
+
+        $service = new MerchantNotifyService();
+
+        // 优先原样重放最近一条代付通知日志（保持与首发一致的签名体）
+        $log = NotifyLog::where('order_no', (string) ($data['withdraw_no'] ?? ''))
+            ->where('biz_type', NotifyLog::BIZ_TRANSFER)
+            ->order('id', 'desc')
+            ->find();
+        if ($log) {
+            return $service->resendManual((int) $log->id);
+        }
+
+        // 无历史通知日志：按当前终态重新首发
+        $success = $status === Withdraw::STATUS_SUCCESS;
+        $ok = $service->dispatchTransfer($data, $success, $success ? '' : (string) ($data['audit_remark'] ?? ''));
+        return [
+            'success' => $ok,
+            'message' => $ok ? '通知已重新投递，商户已回应 SUCCESS' : '通知投递失败，将按退避策略继续自动重试',
+        ];
+    }
+
+    /**
+     * 平台后台人工确认「API 代付」成功并立即通知下游（仅 source=API代付）
+     *
+     * 适用场景：下游实际已出款成功，但上游返回错误/超时导致平台单据停留在「代付中」或
+     * 被置为「代付失败(已退款)」。运营核实后用本操作把单据修正为成功并通知下游 success。
+     *
+     * 资金账实一致（按起始状态分别处理，全部事务内 + 幂等键兜底）：
+     *  - 代付中(2)/审核通过待下发(1)：冻结余额仍在 → {@see LedgerService::deductWithdraw} 扣冻结（与回调成功一致）；
+     *  - 代付失败(-2)：失败时已退款解冻、可用余额已恢复，但实际已出款 → 从可用余额补扣同等毛额（adjustBalance）；
+     *  - 已成功(3)：幂等，仅补发一次成功通知；
+     *  - 待审核(0)/已拒绝(-1)：未进入代付流程，禁止直接置成功。
+     *
+     * @param int|string $id 代付单ID
+     * @param string $remark 运营备注（写入 audit_remark）
+     * @return array{withdraw_no:string,result:string,status:int,message:string}
+     * @throws PaymentException 单不存在 / 非 API 代付 / 状态不允许
+     */
+    public function manualSuccessByAdmin(int|string $id, string $remark = ''): array
+    {
+        $withdraw = Withdraw::where('id', $id)
+            ->where('source', Withdraw::SOURCE_API_TRANSFER)
+            ->find();
+        if (!$withdraw) {
+            throw new PaymentException('代付单不存在');
+        }
+        $data = $withdraw->toArray();
+        $status = (int) ($data['status'] ?? 0);
+        $withdrawNo = (string) ($data['withdraw_no'] ?? '');
+
+        // 已成功：幂等，仅补发一次成功通知，不再动账
+        if ($status === Withdraw::STATUS_SUCCESS) {
+            $this->dispatchTransferNotify($data, true);
+            return [
+                'withdraw_no' => $withdrawNo,
+                'result'      => 'success',
+                'status'      => Withdraw::STATUS_SUCCESS,
+                'message'     => '该代付单已是成功状态，已重新推送成功通知',
+            ];
+        }
+
+        $merchantId = (int) ($data['merchant_id'] ?? 0);
+        $mchId = (string) ($data['mch_id'] ?? '');
+        $amount = AmountHelper::format((string) ($data['amount'] ?? '0'));
+        $auditRemark = $remark !== '' ? $remark : '平台人工确认代付成功';
+
+        if (in_array($status, [Withdraw::STATUS_APPROVED, Withdraw::STATUS_PAYING], true)) {
+            // 冻结余额仍在 → 扣减冻结（钱真正出账，与回调成功口径一致）
+            $this->transaction(function () use ($merchantId, $mchId, $withdrawNo, $amount, $data, $auditRemark) {
+                $this->ledger->deductWithdraw($merchantId, $mchId, $withdrawNo, $amount);
+                $this->updateWithdraw((int) $data['id'], [
+                    'status'       => Withdraw::STATUS_SUCCESS,
+                    'audit_remark' => $auditRemark,
+                ]);
+            });
+        } elseif ($status === Withdraw::STATUS_PAY_FAILED) {
+            // 失败时已退款解冻（可用余额已恢复），实际却已出款 → 从可用余额补扣同等毛额
+            $this->transaction(function () use ($merchantId, $mchId, $withdrawNo, $amount, $data, $auditRemark) {
+                $this->ledger->adjustBalance(
+                    $merchantId,
+                    $mchId,
+                    '-' . $amount,
+                    'wd_manual_success:' . $withdrawNo,
+                    '人工确认代付成功补扣：' . $withdrawNo
+                );
+                $this->updateWithdraw((int) $data['id'], [
+                    'status'       => Withdraw::STATUS_SUCCESS,
+                    'audit_remark' => $auditRemark,
+                ]);
+            });
+        } else {
+            // 待审核 / 已拒绝：未进入代付流程，不允许直接置成功
+            throw new PaymentException('该代付单尚未进入代付流程或已拒绝，不能直接置成功');
+        }
+
+        // 置成功后向下游推送成功通知（source=API代付才会真正发出）
+        $data['status'] = Withdraw::STATUS_SUCCESS;
+        $this->dispatchTransferNotify($data, true);
+
+        return [
+            'withdraw_no' => $withdrawNo,
+            'result'      => 'success',
+            'status'      => Withdraw::STATUS_SUCCESS,
+            'message'     => '已确认代付成功，并已向下游推送成功通知',
+        ];
+    }
+
+    /**
      * 平台审核提现（后台）
      *
      * action 取值：

@@ -173,4 +173,59 @@ class TransferOrderController extends BaseController
         $msg = $messages[$result['result'] ?? ''] ?? '下发完成';
         return $this->success($result, $msg);
     }
+
+    /**
+     * 手动重推下游通知（平台运营）
+     * 路由：POST /core/pay/transferOrder/renotify
+     *
+     * 仅允许 source=2 的 API 代付单，且仅终态（成功/失败）可推。
+     *
+     * @param Request $request { id }
+     * @return Response
+     */
+    #[Permission('代付订单审核', 'pay:transferOrder:audit')]
+    public function renotify(Request $request): Response
+    {
+        $id = $request->post('id', '');
+        if (empty($id)) {
+            return $this->fail('请选择要重推通知的代付单');
+        }
+
+        try {
+            $result = $this->logic->renotifyByAdmin($id);
+        } catch (Throwable $e) {
+            return $this->fail($e->getMessage());
+        }
+
+        return ($result['success'] ?? false)
+            ? $this->success($result, $result['message'] ?? '通知已重新投递')
+            : $this->fail($result['message'] ?? '通知投递失败');
+    }
+
+    /**
+     * 人工确认代付成功并立即通知下游
+     *
+     * 适用：下游实际已出款成功，但上游返回错误/超时，平台单据停留在「代付中」或被置「代付失败(已退款)」。
+     * 运营核实后用本操作把单据修正为成功，按起始状态正确处理资金（扣冻结 / 可用余额补扣）并推送 success 通知。
+     *
+     * @param Request $request { id, remark? }
+     * @return Response
+     */
+    #[Permission('代付订单审核', 'pay:transferOrder:audit')]
+    public function manualSuccess(Request $request): Response
+    {
+        $id = $request->post('id', '');
+        if (empty($id)) {
+            return $this->fail('请选择要确认成功的代付单');
+        }
+        $remark = (string) $request->post('remark', '');
+
+        try {
+            $result = $this->logic->manualSuccessByAdmin($id, $remark);
+        } catch (Throwable $e) {
+            return $this->fail($e->getMessage());
+        }
+
+        return $this->success($result, $result['message'] ?? '已确认代付成功');
+    }
 }

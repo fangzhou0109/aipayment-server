@@ -129,6 +129,8 @@ Route::group('/core/pay', function () {
     Route::get('/transferOrder/transferChannels', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'transferChannels']);
     Route::post('/transferOrder/audit', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'audit']);
     Route::post('/transferOrder/disburse', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'disburse']);
+    Route::post('/transferOrder/renotify', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'renotify']);
+    Route::post('/transferOrder/manualSuccess', [\plugin\paymentchannel\app\controller\admin\TransferOrderController::class, 'manualSuccess']);
 
     // 商户充值管理：只读 + 审核（充值由商户门户发起，后台不开放手工增删改）
     // 审核通过会把金额计入商户可用余额并写资金流水（事务一致）。
@@ -180,11 +182,10 @@ Route::group('/mapi', function () {
     Route::post('/withdraw/apply', [\plugin\paymentchannel\app\controller\merchant\WithdrawController::class, 'apply']);
     Route::get('/withdraw/read', [\plugin\paymentchannel\app\controller\merchant\WithdrawController::class, 'read']);
 
-    // 代付订单（下游 API 代付单 source=2，只读查询 + 手动重推下游通知）
+    // 代付订单（下游 API 代付单 source=2，只读查询）
     Route::get('/transferOrder/index', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'index']);
     Route::get('/transferOrder/read', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'read']);
     Route::post('/transferOrder/audit', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'audit']);
-    Route::post('/transferOrder/renotify', [\plugin\paymentchannel\app\controller\merchant\TransferOrderController::class, 'renotify']);
 
     // 充值（列表 + 发起申请 + 详情）
     Route::get('/recharge/index', [\plugin\paymentchannel\app\controller\merchant\RechargeController::class, 'index']);
